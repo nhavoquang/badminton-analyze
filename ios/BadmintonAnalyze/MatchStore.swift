@@ -44,7 +44,15 @@ final class MatchStore: ObservableObject {
     func retry(_ id: UUID) {
         update(id) { $0.status = .uploading; $0.error = nil; $0.progress = 0 }
         Task {
-            if match(id)?.jobID == nil { await upload(id) } else { await follow(id) }
+            // Keep following a job the server still runs; otherwise (server restarted, job failed) upload again.
+            if let job = match(id)?.jobID,
+               let api = try? APIClient(baseString: serverURL),
+               let s = try? await api.status(job), s.status != "failed" {
+                await follow(id)
+            } else {
+                update(id) { $0.jobID = nil }
+                await upload(id)
+            }
         }
     }
 
