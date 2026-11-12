@@ -1,6 +1,6 @@
 # Badminton Analyze
 
-Tải video cầu lông lên, app vẽ vị trí người chơi (vòng tròn dưới chân), tốc độ, quãng đường, sơ đồ sân; giữ nguyên âm thanh gốc. Đường bay cầu và điểm chạm đang được làm (TrackNetV3).
+Tải video cầu lông lên, app vẽ vị trí người chơi (vòng tròn dưới chân), tốc độ, quãng đường, sơ đồ sân; giữ nguyên âm thanh gốc. Đường bay cầu và điểm chạm dùng trọng số TrackNetV3: đặt `TrackNet_best.pt` vào `backend/weights/` (hoặc biến môi trường `TRACKNET_WEIGHTS`). Không có file này thì bỏ qua bước theo dõi cầu.
 
 ## Cấu trúc
 

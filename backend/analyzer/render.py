@@ -32,8 +32,8 @@ def circle_poly(H, x, y, r=0.5, n=48):
     a = np.linspace(0, 2 * np.pi, n, endpoint=False)
     return court.to_img(H, np.stack([x + r * np.cos(a), y + r * np.sin(a)], 1)).astype(np.int32)
 
-def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None):
-    layers = layers or {'feet', 'speed', 'map'}
+def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None):
+    layers = layers or {'feet', 'speed', 'map', 'path', 'hits'}
     H = np.array(fr['H']) if fr['H'] is not None else None
     act = [p for p in players if p['t0'] <= i <= p['t1']] if H is not None else []
     # --- on-court layer (cv2, alpha blended): trails + foot ellipses
@@ -49,6 +49,8 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None):
         for p in act:
             k = i - p['t0']; c = COL[(p['side'], p['slot'])][::-1]
             cv2.polylines(img, [circle_poly(H, p['X'][k], p['Y'][k])], True, c, 3, cv2.LINE_AA)
+    if sh and H is not None:
+        img = draw_shuttle(img, i, sh, fps, layers)
     # --- UI layer (PIL)
     im = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert('RGBA')
     ui = Image.new('RGBA', im.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ui)
@@ -63,6 +65,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None):
     elif H is None:
         d.rounded_rectangle((24, 116, 400, 156), 12, fill=PANEL)
         d.text((40, 125), 'Cảnh quay phụ · tạm dừng phân tích', font=F_SMALL, fill=(180, 186, 200))
+    if sh and 'hits' in layers and H is not None: hit_labels(d, i, sh, fps, all_p)
     for p in (act if 'speed' in layers else []):
         k = i - p['t0']; c = COL[(p['side'], p['slot'])]
         bx = p['boxf'][i]; cx, top = (bx[0] + bx[2]) / 2, bx[1]
@@ -109,10 +112,76 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None):
                 d.ellipse((xs[-1] - 4, ys[-1] - 4, xs[-1] + 4, ys[-1] + 4), fill='white')
     return cv2.cvtColor(np.array(Image.alpha_composite(im, ui).convert('RGB')), cv2.COLOR_RGB2BGR)
 
-def run(video, det_json, out_mp4, layers=None, names=None, progress=None):
+SHUTTLE = (10, 214, 255)  # BGR of iOS yellow #FFD60A
+
+
+def draw_shuttle(img, i, sh, fps, layers):
+    pts = sh['pts']
+    if 'path' in layers:
+        trail = [pts.get(f) for f in range(i - int(fps * 0.5), i + 1)]
+        segs = [(a, b) for a, b in zip(trail, trail[1:]) if a is not None and b is not None]
+        for n, (a, b) in enumerate(segs):
+            w = 2 + int(4 * (n + 1) / len(segs))
+            cv2.line(img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), SHUTTLE, w, cv2.LINE_AA)
+        if pts.get(i):
+            p = tuple(int(v) for v in pts[i])
+            cv2.circle(img, p, 9, SHUTTLE, -1, cv2.LINE_AA); cv2.circle(img, p, 9, (255, 255, 255), 2, cv2.LINE_AA)
+    if 'hits' in layers:
+        for h in sh['hits']:
+            age = i - h['f']
+            if 0 <= age < fps * 1.0:
+                r = int(14 + age / fps * 30)
+                cv2.circle(img, (int(h['xy'][0]), int(h['xy'][1])), r, (255, 255, 255), 3, cv2.LINE_AA)
+    return img
+
+
+def hit_labels(d, i, sh, fps, all_p):
+    for h in sh['hits']:
+        age = i - h['f']
+        if 0 <= age < fps * 1.2:
+            txt = f"CÚ ĐÁNH · {h['name']}" + (f"  ≈ {h['kmh']:.0f} km/h" if h.get('kmh') else '')
+            x, y = h['xy'][0], h['xy'][1] - 60
+            tw = d.textlength(txt, font=F_TAG) + 28
+            d.rounded_rectangle((x - tw / 2, y - 20, x + tw / 2, y + 20), 20, fill=(255, 214, 10, 235))
+            d.text((x, y), txt, font=F_TAG, fill=(0, 0, 0), anchor='mm')
+
+
+def assign_hits(cands, pts, players, fps):
+    """Keep direction flips that happen within racket reach of a player; attach the hitter and the
+    average shuttle speed to the next hit (ground distance between the two hitters / flight time)."""
+    hits = []
+    for f in cands:
+        x, y = pts[f]
+        best = None
+        for p in players:
+            if not (p['t0'] <= f <= p['t1']): continue
+            b = p['boxf'][f]; w, h = b[2] - b[0], b[3] - b[1]
+            if b[0] - 0.8 * w <= x <= b[2] + 0.8 * w and b[1] - 1.0 * h <= y <= b[3]:
+                d = np.hypot(x - (b[0] + b[2]) / 2, y - b[1])
+                if best is None or d < best[0]: best = (d, p)
+        if best:
+            p = best[1]; k = f - p['t0']
+            hits.append({'f': f, 'xy': (x, y), 'key': f"{p['side']}{p['slot']}", 'name': name_of(p, players),
+                         'pos': (float(p['X'][k]), float(p['Y'][k])), 'shot': p['shot']})
+    for a, b in zip(hits, hits[1:]):
+        if a['shot'] == b['shot'] and a['key'] != b['key']:
+            dt = (b['f'] - a['f']) / fps
+            dist = np.hypot(a['pos'][0] - b['pos'][0], a['pos'][1] - b['pos'][1])
+            if 0.15 < dt < 3: a['kmh'] = dist / dt * 3.6
+    return hits
+
+
+def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None):
     D, players = track.run(det_json)
     if names: NAMES_OVERRIDE.update(names)
     fps = D['fps']; F = D['frames']
+    sh = None
+    if shuttle_json:
+        import json
+        S = json.load(open(shuttle_json))
+        pts = {int(k): tuple(v) for k, v in S['pts'].items()}
+        sh = {'pts': pts, 'hits': assign_hits([c for c in S['cands'] if c in pts], pts, players, fps)}
+        json.dump([{k: v for k, v in h.items()} for h in sh['hits']], open(shuttle_json.replace('.json', '_hits.json'), 'w'))
     cap = cv2.VideoCapture(video)
     w, h = int(cap.get(3)), int(cap.get(4))
     enc = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
@@ -123,9 +192,10 @@ def run(video, det_json, out_mp4, layers=None, names=None, progress=None):
     for i, fr in enumerate(F):
         ok, img = cap.read()
         if not ok: break
-        out = draw_frame(img, i, fr, [p for p in players if p['shot'] == fr['shot']], players, fps, starts.get(fr['shot'], i), layers)
+        out = draw_frame(img, i, fr, [p for p in players if p['shot'] == fr['shot']], players, fps, starts.get(fr['shot'], i), layers, sh)
         enc.stdin.write(out.tobytes())
         if i % 30 == 0 and progress: progress(i / max(len(F), 1))
     enc.stdin.close(); enc.wait()
+    run.hits = sh['hits'] if sh else []
     return players
 

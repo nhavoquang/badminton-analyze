@@ -88,10 +88,19 @@ struct PlayerStats: Codable, Hashable, Identifiable {
     var avgSpeedKmh: Double
     var distanceM: Double
     var zones: Zones
+    var hits: Int?
+    var fastestShotKmh: Double?
+}
+
+struct HitEvent: Codable, Hashable {
+    var t: Double
+    var player: String
+    var kmh: Double?
 }
 
 struct MatchStats: Codable, Hashable {
     var players: [PlayerStats]
+    var hits: [HitEvent]?
 
     /// Combine the per-shot rows into one summary per player.
     var summary: [PlayerSummary] {
@@ -108,6 +117,8 @@ struct MatchStats: Codable, Hashable {
                     slot: PlayerSlot(rawValue: id),
                     maxSpeedKmh: rows.map(\.maxSpeedKmh).max() ?? 0,
                     distanceM: rows.reduce(0) { $0 + $1.distanceM },
+                    hits: rows.reduce(0) { $0 + ($1.hits ?? 0) },
+                    fastestShotKmh: rows.compactMap(\.fastestShotKmh).max(),
                     zones: Zones(net: weighted(\.net), mid: weighted(\.mid), back: weighted(\.back))
                 )
             }
@@ -121,6 +132,8 @@ struct PlayerSummary: Identifiable, Hashable {
     var slot: PlayerSlot?
     var maxSpeedKmh: Double
     var distanceM: Double
+    var hits: Int
+    var fastestShotKmh: Double?
     var zones: Zones
     var color: Color { slot?.color ?? .gray }
 }

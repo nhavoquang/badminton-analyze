@@ -36,7 +36,7 @@ struct ResultView: View {
                             PlayerDot(color: p.color)
                             Text(p.name)
                             Spacer()
-                            Text("Tối đa \(p.maxSpeedKmh.oneDecimal) km/h")
+                            Text("\(p.hits) cú · tối đa \(p.maxSpeedKmh.oneDecimal) km/h")
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }

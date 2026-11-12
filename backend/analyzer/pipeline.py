@@ -5,7 +5,7 @@ import subprocess
 
 import numpy as np
 
-from . import detect, render, track
+from . import detect, render, shuttle, track
 
 STEPS = ['court', 'players', 'shuttle', 'hits', 'render']
 
@@ -21,7 +21,7 @@ def trim(src, dst, start=None, duration=None):
     return dst
 
 
-def stats_json(players, fps, names=None):
+def stats_json(players, fps, names=None, hits=()):
     names = names or {}
     out = []
     for p in players:
@@ -38,6 +38,8 @@ def stats_json(players, fps, names=None):
             'distance_m': round(float(p['dist'][-1]), 1),
             # time share by court zone (depth from own baseline): net / mid / back
             'zones': _zones(p),
+            'hits': sum(1 for h in hits if h['key'] == key and p['t0'] <= h['f'] <= p['t1']),
+            'fastest_shot_kmh': max([round(h['kmh'], 1) for h in hits if h['key'] == key and h.get('kmh') and p['t0'] <= h['f'] <= p['t1']], default=None),
         })
     return out
 
@@ -52,7 +54,7 @@ def _zones(p):
 def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None):
     """progress(step_name, fraction_of_step, overall_fraction)"""
     os.makedirs(work_dir, exist_ok=True)
-    weights = {'court': 0.05, 'players': 0.6, 'shuttle': 0.0, 'hits': 0.0, 'render': 0.35}
+    weights = {'court': 0.05, 'players': 0.4, 'shuttle': 0.3, 'hits': 0.0, 'render': 0.25}
     done = 0.0
 
     def rep(step):
@@ -68,11 +70,57 @@ def run(src, work_dir, start=None, duration=None, layers=None, names=None, progr
     detect.run(clip, det, progress=rep('players'))
     done += weights['players']
 
+    sh_json = None
+    if shuttle_available():
+        sh_json = os.path.join(work_dir, 'shuttle.json')
+        track_shuttle(clip, det, sh_json, rep('shuttle'))
+    done += weights['shuttle']
+
     out = os.path.join(work_dir, 'result.mp4')
-    players = render.run(clip, det, out, layers=set(layers) if layers else None, names=names, progress=rep('render'))
+    players = render.run(clip, det, out, layers=set(layers) if layers else None, names=names,
+                         progress=rep('render'), shuttle_json=sh_json)
     done += weights['render']
     fps = json.load(open(det))['fps']
-    stats = {'players': stats_json(players, fps, names)}
+    hits = getattr(render.run, 'hits', [])
+    stats = {'players': stats_json(players, fps, names, hits),
+             'hits': [{'t': round(h['f'] / fps, 2), 'player': h['key'], 'kmh': round(h['kmh'], 1) if h.get('kmh') else None} for h in hits]}
     json.dump(stats, open(os.path.join(work_dir, 'stats.json'), 'w'), ensure_ascii=False, indent=1)
     if progress: progress('render', 1.0, 1.0)
     return out, stats
+
+
+def shuttle_available():
+    path = os.environ.get('TRACKNET_WEIGHTS') or shuttle.DEFAULT_WEIGHTS
+    return os.path.exists(path)
+
+
+def track_shuttle(clip, det_json, out_json, progress=None):
+    """Run TrackNet on every main-camera shot (frames that have a court homography)."""
+    import cv2
+    from . import court
+    F = json.load(open(det_json))['frames']
+    for f in F:
+        if f['H'] is not None and not court.plausible(np.array(f['H'])): f['H'] = None
+    fps = json.load(open(det_json))['fps']
+    runs, cur = [], None
+    for f in F:
+        if f['H'] is not None and (cur is None or f['shot'] != cur[2] or f['i'] != cur[1]):
+            if cur: runs.append(cur)
+            cur = [f['i'], f['i'] + 1, f['shot']]
+        elif f['H'] is not None:
+            cur[1] = f['i'] + 1
+    if cur: runs.append(cur)
+    total = sum(b - a for a, b, _ in runs) or 1
+    model = shuttle.load()
+    cap = cv2.VideoCapture(clip)
+    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    pts, cands, done = {}, [], 0
+    for a, b, _ in runs:
+        raw = shuttle.track_segment(model, cap, a, b,
+                                    progress=(lambda x, a=a, b=b: progress((done + x * (b - a)) / total)) if progress else None)
+        seg = shuttle.clean(raw, fps, width=width)
+        pts.update(seg)
+        cands += shuttle.find_hits(seg, fps)
+        done += b - a
+    json.dump({'pts': {str(k): [round(v[0], 1), round(v[1], 1)] for k, v in pts.items()}, 'cands': cands}, open(out_json, 'w'))
+    return out_json

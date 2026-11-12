@@ -34,9 +34,13 @@ struct StatsView: View {
                     LabeledContent("Cuối sân", value: p.zones.back.percent)
                 }
 
-                Section("Cú đánh") {
-                    Text("Sẽ có khi phần theo dõi quả cầu hoàn thành.")
-                        .foregroundStyle(.secondary)
+                Section {
+                    LabeledContent("Số cú đánh", value: "\(p.hits)")
+                    LabeledContent("Cú nhanh nhất", value: p.fastestShotKmh.map { "≈ \(Int($0)) km/h" } ?? "–")
+                } header: {
+                    Text("Cú đánh")
+                } footer: {
+                    Text("Tốc độ cú đánh là tốc độ trung bình của quả cầu giữa hai người, ước tính từ một camera.")
                 }
             } else {
                 ContentUnavailableView("Chưa có số liệu", systemImage: "chart.bar")
