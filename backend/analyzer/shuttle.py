@@ -125,6 +125,14 @@ def clean(points, fps, max_jump_frac=0.08, width=1920):
         nb = [points[g] for g in fr[max(0, j - 2):j + 3] if g != f and abs(g - f) <= 4]
         if any(np.hypot(points[f][0] - q[0], points[f][1] - q[1]) < lim for q in nb):
             keep[f] = points[f]
+    # a shuttle in play never sits still: drop detections that stay put for ~0.3 s (shoes, lines, logos)
+    fr = sorted(keep); half = max(3, int(0.15 * fps))
+    still = set()
+    for j, f in enumerate(fr):
+        win = [keep[g] for g in fr[max(0, j - half):j + half + 1] if abs(g - f) <= half]
+        if len(win) >= half and np.ptp([p[0] for p in win]) < 12 and np.ptp([p[1] for p in win]) < 12:
+            still.add(f)
+    keep = {f: v for f, v in keep.items() if f not in still}
     fr = sorted(keep)
     for a, b in zip(fr, fr[1:]):
         if 1 < b - a <= int(0.15 * fps) + 1:
@@ -134,19 +142,29 @@ def clean(points, fps, max_jump_frac=0.08, width=1920):
     return keep
 
 
-def find_hits(pts, fps, min_gap_s=0.35):
-    """Frames where the vertical direction of travel flips (racket contact). Returns sorted frame list."""
+def find_hits(pts, fps, min_gap_s=0.3):
+    """Candidate racket contacts: sharp turns or sudden speed-ups of the shuttle's image velocity.
+    A free flight (rise, apex, fall) bends smoothly; a racket hit changes the velocity abruptly."""
     fr = sorted(pts)
-    if len(fr) < 8: return []
-    ys = np.array([pts[f][1] for f in fr], float)
-    k = max(3, int(0.05 * fps))
-    vy = np.convolve(np.gradient(ys), np.ones(k) / k, mode='same')
-    hits, last = [], -10 ** 9
-    for j in range(k, len(fr) - k):
-        if fr[j + k] - fr[j - k] > 4 * k: continue  # not a continuous run
-        before, after = vy[j - k:j].mean(), vy[j:j + k].mean()
-        # up (negative y) -> down, or down -> up, with real speed on both sides
-        if np.sign(before) != np.sign(after) and min(abs(before), abs(after)) > 1.0:
-            if fr[j] - last >= min_gap_s * fps:
-                hits.append(fr[j]); last = fr[j]
-    return hits
+    if len(fr) < 10: return []
+    k = max(3, int(0.06 * fps))
+    P = {f: np.array(pts[f], float) for f in fr}
+    score = []
+    for f in fr:
+        if not all(g in P for g in (f - k, f, f + k)): continue
+        vin, vout = (P[f] - P[f - k]) / k, (P[f + k] - P[f]) / k
+        sin, sout = np.linalg.norm(vin), np.linalg.norm(vout)
+        if max(sin, sout) < 2.0: continue  # barely moving
+        cos = float(np.dot(vin, vout) / (sin * sout + 1e-9))
+        turn = np.degrees(np.arccos(np.clip(cos, -1, 1)))
+        jump = sout / (sin + 1e-6)
+        if turn > 60 or (jump > 2.2 and sout > 6):
+            score.append((f, turn + 20 * min(jump, 5)))
+    # keep the strongest candidate in each burst
+    hits = []
+    for f, sc in score:
+        if hits and f - hits[-1][0] < min_gap_s * fps:
+            if sc > hits[-1][1]: hits[-1] = (f, sc)
+        else:
+            hits.append((f, sc))
+    return [f for f, _ in hits]

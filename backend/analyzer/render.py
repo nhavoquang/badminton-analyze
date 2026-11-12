@@ -139,8 +139,8 @@ def hit_labels(d, i, sh, fps, all_p):
     for h in sh['hits']:
         age = i - h['f']
         if 0 <= age < fps * 1.2:
-            txt = f"CÚ ĐÁNH · {h['name']}" + (f"  ≈ {h['kmh']:.0f} km/h" if h.get('kmh') else '')
-            x, y = h['xy'][0], h['xy'][1] - 60
+            txt = f"CÚ ĐÁNH · {h['name']}"
+            x, y = h['xy'][0], h['xy'][1] - 95
             tw = d.textlength(txt, font=F_TAG) + 28
             d.rounded_rectangle((x - tw / 2, y - 20, x + tw / 2, y + 20), 20, fill=(255, 214, 10, 235))
             d.text((x, y), txt, font=F_TAG, fill=(0, 0, 0), anchor='mm')
@@ -156,8 +156,10 @@ def assign_hits(cands, pts, players, fps):
         for p in players:
             if not (p['t0'] <= f <= p['t1']): continue
             b = p['boxf'][f]; w, h = b[2] - b[0], b[3] - b[1]
-            if b[0] - 0.8 * w <= x <= b[2] + 0.8 * w and b[1] - 1.0 * h <= y <= b[3]:
-                d = np.hypot(x - (b[0] + b[2]) / 2, y - b[1])
+            # racket reach: around the upper body, about one body height above and to the sides
+            zx0, zx1, zy0, zy1 = b[0] - 0.9 * w, b[2] + 0.9 * w, b[1] - 0.9 * h, b[1] + 0.7 * h
+            if zx0 <= x <= zx1 and zy0 <= y <= zy1:
+                d = np.hypot(x - (b[0] + b[2]) / 2, y - (b[1] + 0.15 * h)) / h
                 if best is None or d < best[0]: best = (d, p)
         if best:
             p = best[1]; k = f - p['t0']
