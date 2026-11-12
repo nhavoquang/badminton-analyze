@@ -5,14 +5,14 @@ import subprocess
 
 import numpy as np
 
-from . import detect, render, shuttle, track
+from . import detect, render, shuttle, tools, track
 
 STEPS = ['court', 'players', 'shuttle', 'hits', 'render']
 
 
 def trim(src, dst, start=None, duration=None):
     """Cut [start, start+duration] and KEEP the audio track (re-encode video for frame-accurate cuts)."""
-    cmd = ['ffmpeg', '-v', 'error', '-y']
+    cmd = [tools.ffmpeg(), '-v', 'error', '-y']
     if start: cmd += ['-ss', str(start)]
     cmd += ['-i', src]
     if duration: cmd += ['-t', str(duration)]

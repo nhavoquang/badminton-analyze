@@ -1,7 +1,7 @@
 """Pass 3: draw overlay (foot ellipses on the court plane, labels, mini-map, stat cards) and encode video."""
 import sys, subprocess, cv2, numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from . import court, track
+from . import court, tools, track
 
 import os
 FONT_DIRS = [os.environ.get('ANALYZER_FONT_DIR', ''), '/usr/share/fonts/opentype/inter', '/usr/share/fonts/truetype/inter']
@@ -10,7 +10,9 @@ def font(w, s):
         for ext in ('otf', 'ttf'):
             p = os.path.join(d, f'Inter-{w}.{ext}')
             if d and os.path.exists(p): return ImageFont.truetype(p, s)
-    for p in ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'DejaVuSans.ttf'):
+    win = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
+    seg = os.path.join(win, 'segoeuib.ttf' if w == 'Bold' else 'seguisb.ttf')
+    for p in (seg, os.path.join(win, 'segoeui.ttf'), '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'DejaVuSans.ttf'):
         try: return ImageFont.truetype(p, s)
         except OSError: pass
     return ImageFont.load_default()
@@ -186,7 +188,7 @@ def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttl
         json.dump([{k: v for k, v in h.items()} for h in sh['hits']], open(shuttle_json.replace('.json', '_hits.json'), 'w'))
     cap = cv2.VideoCapture(video)
     w, h = int(cap.get(3)), int(cap.get(4))
-    enc = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
+    enc = subprocess.Popen([tools.ffmpeg(), '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
                             '-i', video, '-map', '0:v', '-map', '1:a?', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
                             '-c:a', 'aac', '-shortest', '-movflags', '+faststart', out_mp4], stdin=subprocess.PIPE)
     starts = {}
