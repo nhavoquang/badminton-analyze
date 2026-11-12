@@ -147,6 +147,8 @@ struct Match: Codable, Identifiable, Hashable {
     var layers: [OverlayLayer]
     var clipStart: Double?
     var clipDuration: Double?
+    /// 4 court marks as fractions of the frame (see CourtModel.marks); nil = automatic detection.
+    var court: [[Double]]? = nil
     var jobID: String?
     var status: MatchStatus = .uploading
     var progress: Double = 0

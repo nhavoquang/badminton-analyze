@@ -22,7 +22,7 @@ def run(det_json):
     shots = {}
     for f in F:
         if f['H'] is not None:
-            f['ok'] = court.plausible(np.array(f['H']))
+            f['ok'] = D.get('manual') or court.plausible(np.array(f['H']), D.get('w', 1920), D.get('h', 1080))
             shots.setdefault(f['shot'], []).append(f['i'])
     # temporal consistency: inside a shot the camera is (nearly) fixed, so frames whose court fit
     # disagrees with the shot's median fit are wrong re-fits -> replace with the median homography

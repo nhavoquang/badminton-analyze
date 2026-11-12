@@ -31,6 +31,10 @@ struct NewMatchView: View {
     @State private var kind: MatchKind = .doubles
     @State private var names: [PlayerSlot: String] = [:]
     @State private var layers: Set<OverlayLayer> = [.feet, .path, .hits, .speed]
+    @AppStorage("markCourt") private var manualCourt = true
+    @AppStorage("lastCourtMarks") private var lastMarks = ""  // the phone often stands in the same spot
+    @State private var marks: [CGPoint] = [CGPoint(x: 0.35, y: 0.35), CGPoint(x: 0.65, y: 0.35),
+                                           CGPoint(x: 0.85, y: 0.6), CGPoint(x: 0.15, y: 0.6)]
 
     private let clipChoices: [Double] = [15, 30, 60, 0]  // 0 = whole video
 
@@ -38,7 +42,7 @@ struct NewMatchView: View {
         NavigationStack {
             Form {
                 Section {
-                    PhotosPicker(selection: $pick, matching: .videos) {
+                    PhotosPicker(selection: $pick, matching: .videos, preferredItemEncoding: .current) {
                         ZStack {
                             if let video {
                                 VideoThumbnail(url: video, time: start)
@@ -115,11 +119,16 @@ struct NewMatchView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Huỷ") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    NavigationLink("Tiếp") { CourtConfirmView(video: video, start: start, onStart: begin) }
+                    NavigationLink("Tiếp") { CourtConfirmView(video: video, start: start, manual: $manualCourt, marks: $marks, onStart: begin) }
                         .disabled(video == nil)
                 }
             }
             .onChange(of: pick) { _, item in Task { await load(item) } }
+            .onAppear {
+                if let saved = try? JSONDecoder().decode([[Double]].self, from: Data(lastMarks.utf8)), saved.count == 4 {
+                    marks = saved.map { CGPoint(x: $0[0], y: $0[1]) }
+                }
+            }
         }
     }
 
@@ -153,40 +162,65 @@ struct NewMatchView: View {
             names: picked,
             layers: OverlayLayer.allCases.filter(layers.contains),
             clipStart: useClip ? start : nil,
-            clipDuration: useClip ? clip : nil
+            clipDuration: useClip ? clip : nil,
+            court: manualCourt ? marks.map { [Double($0.x), Double($0.y)] } : nil
         )
+        if manualCourt, let data = try? JSONEncoder().encode(marks.map { [Double($0.x), Double($0.y)] }) {
+            lastMarks = String(decoding: data, as: UTF8.self)
+        }
         store.start(draft, video: video)
         dismiss()
     }
 }
 
-/// Lets the user check the camera angle before uploading.
+/// The user marks the court on a frame of the video (or leaves it to automatic detection) before uploading.
 struct CourtConfirmView: View {
     var video: URL?
     var start: Double
+    @Binding var manual: Bool
+    @Binding var marks: [CGPoint]
     var onStart: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            VideoThumbnail(url: video, time: start)
-                .frame(maxWidth: .infinity)
-                .frame(height: 440)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal)
-                .padding(.top, 12)
-            Text("Máy sẽ tự nhận ra các vạch sân. Để kết quả chính xác, khung hình nên thấy đủ 4 góc sân và điện thoại được đặt cố định.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 32)
-                .padding(.top, 10)
-            Spacer()
+            Picker("Cách nhận diện sân", selection: $manual) {
+                Text("Tự chấm sân").tag(true)
+                Text("Tự động").tag(false)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+
+            if manual {
+                CourtMarkView(video: video, time: start, marks: $marks)
+                    .padding(.horizontal)
+                Text("Kéo **1** và **2** vào hai góc cuối sân phía bên kia lưới, **3** và **4** vào chân hai cột lưới. Khung vàng phải trùng với vạch sân.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10)
+            } else {
+                VideoThumbnail(url: video, time: start)
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                Text("Hợp với video quay từ sau sân, thấy đủ 4 góc sân. Với video quay từ góc sân bằng điện thoại, hãy dùng Tự chấm sân.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10)
+            }
+
             Button(action: onStart) {
                 Text("Bắt đầu phân tích").frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(.horizontal)
-            .padding(.bottom, 24)
+            .padding(.vertical, 16)
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Sân đấu")

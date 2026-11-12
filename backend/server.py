@@ -6,7 +6,9 @@ GET  /jobs/{id}/video   -> annotated mp4 (with the original audio)
 GET  /jobs/{id}/stats   -> per-player stats json
 
 options: {"start": 12.0, "duration": 30, "layers": ["feet","path","hits","speed","map"],
-          "names": {"near0": "Huy", "near1": "Dung", "far0": "Vương", "far1": "Vui"}}
+          "names": {"near0": "Huy", "near1": "Dung", "far0": "Vương", "far1": "Vui"},
+          "court": [[x,y] x4] optional, fractions of the frame: far-left corner, far-right corner,
+                   right net-post foot, left net-post foot (fixed camera; skips auto court detection)}
 Run:  uvicorn server:app --host 0.0.0.0 --port 8000
 """
 import json
@@ -37,7 +39,8 @@ def worker():
             job['step'], job['progress'] = step, round(overall, 3)
         try:
             pipeline.run(job['src'], job['dir'], job['opts'].get('start'), job['opts'].get('duration'),
-                         job['opts'].get('layers'), job['opts'].get('names'), prog)
+                         job['opts'].get('layers'), job['opts'].get('names'), prog,
+                         marks=job['opts'].get('court'))
             job['status'], job['progress'] = 'done', 1.0
         except Exception as e:  # report to the app instead of crashing the worker
             job['status'], job['error'] = 'failed', str(e)

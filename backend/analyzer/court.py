@@ -81,6 +81,17 @@ def fit(img, scale=0.5):
     Hm2i = S @ best[0]
     return Hm2i, best[1]  # model(m) -> image(px)
 
+# Points the user marks in the app (far half of the court, always in view from behind or a corner):
+# far-left corner, far-right corner, right net-post foot, left net-post foot.
+MARK_MODEL = [(0, 0), (W, 0), (W, L / 2), (0, L / 2)]
+
+
+def from_marks(marks, w, h):
+    """Homography court-metres -> image from 4 marks given as fractions of the frame size."""
+    dst = np.float32([(x * w, y * h) for x, y in marks])
+    return cv2.getPerspectiveTransform(np.float32(MARK_MODEL), dst)
+
+
 def to_court(Hm2i, pts):
     Hi2m = np.linalg.inv(Hm2i)
     return cv2.perspectiveTransform(np.float32(pts).reshape(-1, 1, 2), Hi2m).reshape(-1, 2)

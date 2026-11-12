@@ -51,7 +51,7 @@ def _zones(p):
     return {'net': round(net, 2), 'mid': round(1 - net - back, 2), 'back': round(back, 2)}
 
 
-def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None):
+def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None, marks=None):
     """progress(step_name, fraction_of_step, overall_fraction)"""
     os.makedirs(work_dir, exist_ok=True)
     weights = {'court': 0.05, 'players': 0.4, 'shuttle': 0.3, 'hits': 0.0, 'render': 0.25}
@@ -67,7 +67,7 @@ def run(src, work_dir, start=None, duration=None, layers=None, names=None, progr
     rep('court')(1.0); done += weights['court']
 
     det = os.path.join(work_dir, 'det.json')
-    detect.run(clip, det, progress=rep('players'))
+    detect.run(clip, det, progress=rep('players'), marks=marks)
     done += weights['players']
 
     sh_json = None
@@ -98,9 +98,10 @@ def track_shuttle(clip, det_json, out_json, progress=None):
     """Run TrackNet on every main-camera shot (frames that have a court homography)."""
     import cv2
     from . import court
-    F = json.load(open(det_json))['frames']
+    D = json.load(open(det_json)); F = D['frames']
     for f in F:
-        if f['H'] is not None and not court.plausible(np.array(f['H'])): f['H'] = None
+        if f['H'] is not None and not D.get('manual') and not court.plausible(np.array(f['H']), D.get('w', 1920), D.get('h', 1080)):
+            f['H'] = None
     fps = json.load(open(det_json))['fps']
     runs, cur = [], None
     for f in F:

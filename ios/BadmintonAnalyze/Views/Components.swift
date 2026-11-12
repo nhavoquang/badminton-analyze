@@ -20,11 +20,11 @@ struct VideoThumbnail: View {
         }
     }
 
-    static func frame(_ url: URL?, at seconds: Double) async -> UIImage? {
+    static func frame(_ url: URL?, at seconds: Double, maxSide: CGFloat = 800) async -> UIImage? {
         guard let url, FileManager.default.fileExists(atPath: url.path) else { return nil }
         let gen = AVAssetImageGenerator(asset: AVURLAsset(url: url))
         gen.appliesPreferredTrackTransform = true
-        gen.maximumSize = CGSize(width: 800, height: 800)
+        gen.maximumSize = CGSize(width: maxSide, height: maxSide)
         guard let result = try? await gen.image(at: CMTime(seconds: seconds, preferredTimescale: 600)) else { return nil }
         return UIImage(cgImage: result.image)
     }

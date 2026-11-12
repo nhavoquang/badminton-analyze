@@ -16,7 +16,11 @@ def font(w, s):
         try: return ImageFont.truetype(p, s)
         except OSError: pass
     return ImageFont.load_default()
-F_TITLE, F_SUB, F_NAME, F_BIG, F_SMALL, F_TAG = font('Bold', 30), font('Medium', 18), font('Bold', 24), font('Bold', 46), font('Medium', 17), font('Bold', 22)
+_FONTS = {}
+def fonts(w, s):
+    s = max(8, s)
+    if (w, s) not in _FONTS: _FONTS[(w, s)] = font(w, s)
+    return _FONTS[(w, s)]
 COL = {('far', 0): (45, 212, 191), ('far', 1): (167, 139, 250), ('near', 0): (251, 191, 36), ('near', 1): (251, 113, 133)}
 NAMES = {('far', 0): 'Sân xa', ('far', 1): 'Sân xa 2', ('near', 0): 'Sân gần', ('near', 1): 'Sân gần 2'}
 PANEL = (17, 20, 32, 210)
@@ -38,6 +42,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
     layers = layers or {'feet', 'speed', 'map', 'path', 'hits'}
     H = np.array(fr['H']) if fr['H'] is not None else None
     act = [p for p in players if p['t0'] <= i <= p['t1']] if H is not None else []
+    lw = lambda v: max(1, round(v * min(img.shape[:2]) / 1080))
     # --- on-court layer (cv2, alpha blended): trails + foot ellipses
     if act and 'feet' in layers:
         ov = img.copy()
@@ -45,107 +50,117 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
             k = i - p['t0']; c = COL[(p['side'], p['slot'])][::-1]
             a = max(0, k - int(fps * 1.0))
             trail = court.to_img(H, np.stack([p['X'][a:k + 1], p['Y'][a:k + 1]], 1)).astype(np.int32)
-            if len(trail) > 1: cv2.polylines(ov, [trail], False, c, 4, cv2.LINE_AA)
+            if len(trail) > 1: cv2.polylines(ov, [trail], False, c, lw(4), cv2.LINE_AA)
             cv2.fillPoly(ov, [circle_poly(H, p['X'][k], p['Y'][k])], c, cv2.LINE_AA)
         img = cv2.addWeighted(ov, 0.35, img, 0.65, 0)
         for p in act:
             k = i - p['t0']; c = COL[(p['side'], p['slot'])][::-1]
-            cv2.polylines(img, [circle_poly(H, p['X'][k], p['Y'][k])], True, c, 3, cv2.LINE_AA)
+            cv2.polylines(img, [circle_poly(H, p['X'][k], p['Y'][k])], True, c, lw(3), cv2.LINE_AA)
     if sh and H is not None:
         img = draw_shuttle(img, i, sh, fps, layers)
-    # --- UI layer (PIL)
+    # --- UI layer (PIL); sizes are designed for 1080p and scaled to the frame (portrait phone videos too)
     im = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert('RGBA')
     ui = Image.new('RGBA', im.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ui)
     W, Hh = im.size
+    u = min(W, Hh) / 1080
+    S = lambda v: v * u
+    f_title, f_sub, f_name, f_big, f_small, f_tag = (fonts(w, round(z * u)) for w, z in
+                                                    (('Bold', 30), ('Medium', 18), ('Bold', 24), ('Bold', 46), ('Medium', 17), ('Bold', 22)))
+    m = S(24)
     # header
-    d.rounded_rectangle((24, 20, 640, 104), 16, fill=PANEL)
-    d.text((44, 30), 'PHÂN TÍCH CẦU LÔNG', font=F_TITLE, fill='white')
-    d.text((44, 70), 'Tốc độ di chuyển · Quãng đường · Vị trí trên sân', font=F_SUB, fill=(180, 186, 200))
+    hw = min(S(616), W - 2 * m - (S(34) * court.W + S(48) if act and 'map' in layers else 0))
+    d.rounded_rectangle((m, S(20), m + hw, S(104)), S(16), fill=PANEL)
+    d.text((m + S(20), S(30)), 'PHÂN TÍCH CẦU LÔNG', font=f_title, fill='white')
+    d.text((m + S(20), S(70)), 'Tốc độ · Quãng đường · Vị trí', font=f_sub, fill=(180, 186, 200))
     if act:
         t = (i - shot_start) / fps
-        d.text((616, 32), f'{int(t // 60):02d}:{t % 60:04.1f}', font=F_TITLE, fill='white', anchor='ra')
+        d.text((m + hw - S(20), S(70)), f'{int(t // 60):02d}:{t % 60:04.1f}', font=f_sub, fill='white', anchor='ra')
     elif H is None:
-        d.rounded_rectangle((24, 116, 400, 156), 12, fill=PANEL)
-        d.text((40, 125), 'Cảnh quay phụ · tạm dừng phân tích', font=F_SMALL, fill=(180, 186, 200))
-    if sh and 'hits' in layers and H is not None: hit_labels(d, i, sh, fps, all_p)
+        d.rounded_rectangle((m, S(116), m + S(376), S(156)), S(12), fill=PANEL)
+        d.text((m + S(16), S(125)), 'Cảnh quay phụ · tạm dừng phân tích', font=f_small, fill=(180, 186, 200))
+    if sh and 'hits' in layers and H is not None: hit_labels(d, i, sh, fps, all_p, u, f_tag)
     for p in (act if 'speed' in layers else []):
         k = i - p['t0']; c = COL[(p['side'], p['slot'])]
         bx = p['boxf'][i]; cx, top = (bx[0] + bx[2]) / 2, bx[1]
         label = name_of(p, all_p); sp = f"{p['v'][k]:.1f}"
-        tw = d.textlength(label, font=F_TAG) + d.textlength(sp, font=F_TAG) + 56
-        x0, y0 = cx - tw / 2, top - 52
-        d.rounded_rectangle((x0, y0, x0 + tw, y0 + 38), 19, fill=PANEL, outline=c + (255,), width=2)
-        d.ellipse((x0 + 12, y0 + 13, x0 + 24, y0 + 25), fill=c)
-        d.text((x0 + 32, y0 + 6), label, font=F_TAG, fill='white')
-        d.text((x0 + tw - 12, y0 + 6), sp, font=F_TAG, fill=c, anchor='ra')
-        d.polygon([(cx - 7, y0 + 38), (cx + 7, y0 + 38), (cx, y0 + 46)], fill=c)
+        tw = d.textlength(label, font=f_tag) + d.textlength(sp, font=f_tag) + S(56)
+        x0, y0 = cx - tw / 2, top - S(52)
+        d.rounded_rectangle((x0, y0, x0 + tw, y0 + S(38)), S(19), fill=PANEL, outline=c + (255,), width=max(1, round(S(2))))
+        d.ellipse((x0 + S(12), y0 + S(13), x0 + S(24), y0 + S(25)), fill=c)
+        d.text((x0 + S(32), y0 + S(19)), label, font=f_tag, fill='white', anchor='lm')
+        d.text((x0 + tw - S(12), y0 + S(19)), sp, font=f_tag, fill=c, anchor='rm')
+        d.polygon([(cx - S(7), y0 + S(38)), (cx + S(7), y0 + S(38)), (cx, y0 + S(46))], fill=c)
     if act and 'map' in layers:
-        # mini-map (top-down court)
-        s = 34; mw, mh = court.W * s, court.L * s; mx, my = W - mw - 48, 24 + 24
-        d.rounded_rectangle((mx - 24, my - 24, mx + mw + 24, my + mh + 24), 16, fill=PANEL)
+        # mini-map (top-down court), top right
+        s = S(34); mw, mh = court.W * s, court.L * s; mx, my = W - mw - S(48), S(48)
+        d.rounded_rectangle((mx - S(24), my - S(24), mx + mw + S(24), my + mh + S(24)), S(16), fill=PANEL)
         for (a, b) in court.SEG:
-            d.line([(mx + a[0] * s, my + a[1] * s), (mx + b[0] * s, my + b[1] * s)], fill=(200, 205, 215, 200), width=2)
-        d.line([(mx - 10, my + court.L / 2 * s), (mx + mw + 10, my + court.L / 2 * s)], fill=(255, 255, 255, 255), width=4)
+            d.line([(mx + a[0] * s, my + a[1] * s), (mx + b[0] * s, my + b[1] * s)], fill=(200, 205, 215, 200), width=max(1, round(S(2))))
+        d.line([(mx - S(10), my + court.L / 2 * s), (mx + mw + S(10), my + court.L / 2 * s)], fill=(255, 255, 255, 255), width=max(1, round(S(4))))
         for p in act:
             k = i - p['t0']; c = COL[(p['side'], p['slot'])]
             a = max(0, k - int(fps * 3))
             pts = [(mx + x * s, my + y * s) for x, y in zip(p['X'][a:k + 1:3], p['Y'][a:k + 1:3])]
-            if len(pts) > 1: d.line(pts, fill=c + (170,), width=4, joint='curve')
+            if len(pts) > 1: d.line(pts, fill=c + (170,), width=max(1, round(S(4))), joint='curve')
             x, y = mx + p['X'][k] * s, my + p['Y'][k] * s
-            d.ellipse((x - 10, y - 10, x + 10, y + 10), fill=c, outline='white', width=2)
+            d.ellipse((x - S(10), y - S(10), x + S(10), y + S(10)), fill=c, outline='white', width=max(1, round(S(2))))
     if act and 'speed' in layers:
-        # stat cards
-        cw, ch, gap = 330, 150, 16
+        # stat cards along the bottom, wrapping into rows on narrow (portrait) frames
+        gap = S(16); per_row = max(1, min(len(act), int((W - 2 * m + gap) // (S(330) + gap))))
+        cw = min(S(330) if W > Hh else 1e9, (W - 2 * m - (per_row - 1) * gap) / per_row); ch = S(150)
+        rows = (len(act) + per_row - 1) // per_row
         for n, p in enumerate(sorted(act, key=lambda q: (q['side'] != 'far', q['slot']))):
             k = i - p['t0']; c = COL[(p['side'], p['slot'])]
-            x0 = 24 + n * (cw + gap); y0 = Hh - ch - 24
-            d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), 16, fill=PANEL)
-            d.rectangle((x0, y0 + 16, x0 + 5, y0 + ch - 16), fill=c)
-            d.text((x0 + 22, y0 + 14), name_of(p, all_p), font=F_NAME, fill='white')
-            d.text((x0 + cw - 70, y0 + 8), f"{p['v'][k]:.1f}", font=F_BIG, fill=c, anchor='ra')
-            d.text((x0 + cw - 18, y0 + 26), 'km/h', font=F_SMALL, fill=(180, 186, 200), anchor='ra')
-            d.text((x0 + 22, y0 + 66), f"Tối đa {p['vmax'][k]:.1f} km/h  ·  {p['dist'][k]:.1f} m", font=F_SMALL, fill=(200, 205, 215))
+            x0 = m + (n % per_row) * (cw + gap); y0 = Hh - m - (rows - n // per_row) * (ch + gap) + gap
+            d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), S(16), fill=PANEL)
+            d.rectangle((x0, y0 + S(16), x0 + S(5), y0 + ch - S(16)), fill=c)
+            d.text((x0 + S(22), y0 + S(14)), name_of(p, all_p), font=f_name, fill='white')
+            d.text((x0 + cw - S(70), y0 + S(8)), f"{p['v'][k]:.1f}", font=f_big, fill=c, anchor='ra')
+            d.text((x0 + cw - S(18), y0 + S(26)), 'km/h', font=f_small, fill=(180, 186, 200), anchor='ra')
+            d.text((x0 + S(22), y0 + S(66)), f"Tối đa {p['vmax'][k]:.1f} km/h  ·  {p['dist'][k]:.1f} m", font=f_small, fill=(200, 205, 215))
             a = max(0, k - int(fps * 6)); vs = p['v'][a:k + 1]
             if len(vs) > 1:
-                gx0, gx1, gy0, gy1 = x0 + 22, x0 + cw - 18, y0 + 100, y0 + ch - 14
+                gx0, gx1, gy0, gy1 = x0 + S(22), x0 + cw - S(18), y0 + S(100), y0 + ch - S(14)
                 xs = np.linspace(gx0, gx1, int(fps * 6) + 1)[-len(vs):]
                 ys = gy1 - np.clip(vs / 25, 0, 1) * (gy1 - gy0)
-                d.line(list(zip(xs, ys)), fill=c, width=2)
-                d.ellipse((xs[-1] - 4, ys[-1] - 4, xs[-1] + 4, ys[-1] + 4), fill='white')
+                d.line(list(zip(xs, ys)), fill=c, width=max(1, round(S(2))))
+                d.ellipse((xs[-1] - S(4), ys[-1] - S(4), xs[-1] + S(4), ys[-1] + S(4)), fill='white')
     return cv2.cvtColor(np.array(Image.alpha_composite(im, ui).convert('RGB')), cv2.COLOR_RGB2BGR)
 
 SHUTTLE = (10, 214, 255)  # BGR of iOS yellow #FFD60A
 
 
 def draw_shuttle(img, i, sh, fps, layers):
-    pts = sh['pts']
+    pts = sh['pts']; u = min(img.shape[:2]) / 1080
+    lw = lambda v: max(1, round(v * u))
     if 'path' in layers:
         trail = [pts.get(f) for f in range(i - int(fps * 0.5), i + 1)]
         segs = [(a, b) for a, b in zip(trail, trail[1:]) if a is not None and b is not None]
         for n, (a, b) in enumerate(segs):
-            w = 2 + int(4 * (n + 1) / len(segs))
+            w = lw(2 + 4 * (n + 1) / len(segs))
             cv2.line(img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), SHUTTLE, w, cv2.LINE_AA)
         if pts.get(i):
             p = tuple(int(v) for v in pts[i])
-            cv2.circle(img, p, 9, SHUTTLE, -1, cv2.LINE_AA); cv2.circle(img, p, 9, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.circle(img, p, lw(9), SHUTTLE, -1, cv2.LINE_AA); cv2.circle(img, p, lw(9), (255, 255, 255), lw(2), cv2.LINE_AA)
     if 'hits' in layers:
         for h in sh['hits']:
             age = i - h['f']
             if 0 <= age < fps * 1.0:
-                r = int(14 + age / fps * 30)
-                cv2.circle(img, (int(h['xy'][0]), int(h['xy'][1])), r, (255, 255, 255), 3, cv2.LINE_AA)
+                r = lw(14 + age / fps * 30)
+                cv2.circle(img, (int(h['xy'][0]), int(h['xy'][1])), r, (255, 255, 255), lw(3), cv2.LINE_AA)
     return img
 
 
-def hit_labels(d, i, sh, fps, all_p):
+def hit_labels(d, i, sh, fps, all_p, u=1.0, f_tag=None):
+    f_tag = f_tag or fonts('Bold', 22)
     for h in sh['hits']:
         age = i - h['f']
         if 0 <= age < fps * 1.2:
             txt = f"CÚ ĐÁNH · {h['name']}"
-            x, y = h['xy'][0], h['xy'][1] - 95
-            tw = d.textlength(txt, font=F_TAG) + 28
-            d.rounded_rectangle((x - tw / 2, y - 20, x + tw / 2, y + 20), 20, fill=(255, 214, 10, 235))
-            d.text((x, y), txt, font=F_TAG, fill=(0, 0, 0), anchor='mm')
+            x, y = h['xy'][0], h['xy'][1] - 95 * u
+            tw = d.textlength(txt, font=f_tag) + 28 * u
+            d.rounded_rectangle((x - tw / 2, y - 20 * u, x + tw / 2, y + 20 * u), 20 * u, fill=(255, 214, 10, 235))
+            d.text((x, y), txt, font=f_tag, fill=(0, 0, 0), anchor='mm')
 
 
 def assign_hits(cands, pts, players, fps):

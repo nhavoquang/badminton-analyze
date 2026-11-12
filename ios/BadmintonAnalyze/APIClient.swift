@@ -5,6 +5,7 @@ struct JobOptions: Encodable {
     var duration: Double?
     var layers: [String]
     var names: [String: String]
+    var court: [[Double]]?
 }
 
 struct JobStatus: Decodable {
