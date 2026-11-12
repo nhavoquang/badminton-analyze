@@ -107,6 +107,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
     if act and 'speed' in layers:
         # stat cards along the bottom, wrapping into rows on narrow (portrait) frames
         gap = S(16); per_row = max(1, min(len(act), int((W - 2 * m + gap) // (S(330) + gap))))
+        if W < Hh: per_row = min(len(act), 2)  # portrait: 2 x 2 grid
         cw = min(S(330) if W > Hh else 1e9, (W - 2 * m - (per_row - 1) * gap) / per_row); ch = S(150)
         rows = (len(act) + per_row - 1) // per_row
         for n, p in enumerate(sorted(act, key=lambda q: (q['side'] != 'far', q['slot']))):
