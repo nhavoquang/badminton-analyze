@@ -1,0 +1,61 @@
+name: iOS build
+
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (unsigned, device)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project BadmintonAnalyze.xcodeproj \
+            -scheme BadmintonAnalyze \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tee build.log | grep -E "error|warning: .*deprecated|BUILD" || true
+          test -d build/Build/Products/Release-iphoneos/BadmintonAnalyze.app
+
+      - name: Package unsigned IPA
+        working-directory: ios
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/BadmintonAnalyze.app Payload/
+          zip -qr BadmintonAnalyze-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BadmintonAnalyze-unsigned-ipa
+          path: ios/BadmintonAnalyze-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: ios/build.log

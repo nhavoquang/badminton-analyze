@@ -1,0 +1,39 @@
+name: BadmintonAnalyze
+options:
+  bundleIdPrefix: com.nhavo
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  BadmintonAnalyze:
+    type: application
+    platform: iOS
+    sources:
+      - path: BadmintonAnalyze
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nhavo.badmintonanalyze
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "Cầu Lông AI"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Chọn video trận đấu để phân tích."
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Lưu video đã phân tích vào Ảnh."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Quay video trận đấu để phân tích."
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Kết nối tới máy chủ phân tích trong mạng nhà bạn."
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    info:
+      path: BadmintonAnalyze/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
