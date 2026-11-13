@@ -38,5 +38,5 @@ def run(video, out_json, model_name='yolo11s.pt', imgsz=1280, progress=None, mar
         frames.append(rec)
         if i % 30 == 0 and progress: progress(i / max(n, 1))
         i += 1
-    json.dump({'fps': fps, 'w': w, 'h': h, 'manual': fixed is not None, 'frames': frames}, open(out_json, 'w'))
+    json.dump({'fps': fps, 'w': w, 'h': h, 'manual': fixed is not None, 'frames': frames}, open(out_json, 'w', encoding='utf-8'))
 

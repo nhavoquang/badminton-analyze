@@ -61,7 +61,7 @@ final class MatchStore: ObservableObject {
         do {
             let api = try APIClient(baseString: serverURL)
             let opts = JobOptions(start: m.clipStart, duration: m.clipDuration,
-                                  layers: m.layers.map(\.rawValue), names: m.names, court: m.court)
+                                  layers: m.layers.map(\.rawValue), names: m.names, court: m.court, seed: m.seed)
             let job = try await api.createJob(video: m.sourceURL, options: opts)
             update(id) { $0.jobID = job; $0.status = .queued }
             await follow(id)

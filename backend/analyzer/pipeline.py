@@ -51,7 +51,8 @@ def _zones(p):
     return {'net': round(net, 2), 'mid': round(1 - net - back, 2), 'back': round(back, 2)}
 
 
-def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None, marks=None):
+def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None, marks=None, seed=None):
+    """seed: {'t': seconds into the clip, 'players': {slot: [x, y] court metres}} from the app's preview."""
     """progress(step_name, fraction_of_step, overall_fraction)"""
     os.makedirs(work_dir, exist_ok=True)
     weights = {'court': 0.05, 'players': 0.4, 'shuttle': 0.3, 'hits': 0.0, 'render': 0.25}
@@ -78,13 +79,14 @@ def run(src, work_dir, start=None, duration=None, layers=None, names=None, progr
 
     out = os.path.join(work_dir, 'result.mp4')
     players = render.run(clip, det, out, layers=set(layers) if layers else None, names=names,
-                         progress=rep('render'), shuttle_json=sh_json)
+                         progress=rep('render'), shuttle_json=sh_json,
+                         seed=dict(f=round(seed.get('t', 0) * json.load(open(det, encoding='utf-8'))['fps']), players=seed.get('players')) if seed else None)
     done += weights['render']
-    fps = json.load(open(det))['fps']
+    fps = json.load(open(det, encoding='utf-8'))['fps']
     hits = getattr(render.run, 'hits', [])
     stats = {'players': stats_json(players, fps, names, hits),
              'hits': [{'t': round(h['f'] / fps, 2), 'player': h['key'], 'kmh': round(h['kmh'], 1) if h.get('kmh') else None} for h in hits]}
-    json.dump(stats, open(os.path.join(work_dir, 'stats.json'), 'w'), ensure_ascii=False, indent=1)
+    json.dump(stats, open(os.path.join(work_dir, 'stats.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     if progress: progress('render', 1.0, 1.0)
     return out, stats
 
@@ -98,11 +100,11 @@ def track_shuttle(clip, det_json, out_json, progress=None):
     """Run TrackNet on every main-camera shot (frames that have a court homography)."""
     import cv2
     from . import court
-    D = json.load(open(det_json)); F = D['frames']
+    D = json.load(open(det_json, encoding='utf-8')); F = D['frames']
     for f in F:
         if f['H'] is not None and not D.get('manual') and not court.plausible(np.array(f['H']), D.get('w', 1920), D.get('h', 1080)):
             f['H'] = None
-    fps = json.load(open(det_json))['fps']
+    fps = json.load(open(det_json, encoding='utf-8'))['fps']
     runs, cur = [], None
     for f in F:
         if f['H'] is not None and (cur is None or f['shot'] != cur[2] or f['i'] != cur[1]):
@@ -123,5 +125,5 @@ def track_shuttle(clip, det_json, out_json, progress=None):
         pts.update(seg)
         cands += shuttle.find_hits(seg, fps)
         done += b - a
-    json.dump({'pts': {str(k): [round(v[0], 1), round(v[1], 1)] for k, v in pts.items()}, 'cands': cands}, open(out_json, 'w'))
+    json.dump({'pts': {str(k): [round(v[0], 1), round(v[1], 1)] for k, v in pts.items()}, 'cands': cands}, open(out_json, 'w', encoding='utf-8'))
     return out_json

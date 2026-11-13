@@ -16,8 +16,29 @@ def foot_points(H, dets):
             out.append({'box': d[:4], 'conf': d[4], 'xy': np.array([x, y])})
     return out
 
-def run(det_json):
-    D = json.load(open(det_json)); fps = D['fps']; F = D['frames']
+def _apply_seed(slots, side, seed):
+    """Renumber a side's slots so they match the positions the user confirmed in the preview frame."""
+    if not seed or not seed.get('players'): return
+    want = {int(k[-1]): np.array(v, float) for k, v in seed['players'].items() if k.startswith(side)}
+    if not want: return
+    f = seed.get('f', 0)
+    def near(sl):
+        fr = [i for i in sl['pos'] if abs(i - f) <= 15]
+        return sl['pos'][min(fr, key=lambda i: abs(i - f))] if fr else None
+    pos = [near(sl) for sl in slots]
+    if len(slots) == 1:
+        if pos[0] is not None and len(want) == 1: slots[0]['slot'] = next(iter(want))
+        return
+    def cost(order):
+        return sum(np.linalg.norm(pos[j] - want[s]) for j, s in enumerate(order) if pos[j] is not None and s in want)
+    if cost((1, 0)) < cost((0, 1)):
+        slots[0]['slot'], slots[1]['slot'] = 1, 0
+
+
+def run(det_json, seed=None):
+    """seed: {'f': frame, 'players': {'near0': [x, y], ...}} from the app's preview, so each slot keeps the name
+    the user checked there."""
+    D = json.load(open(det_json, encoding='utf-8')); fps = D['fps']; F = D['frames']
     n = len(F)
     shots = {}
     for f in F:
@@ -71,6 +92,7 @@ def run(det_json):
                     if last[j] is not None and np.linalg.norm(p['xy'] - last[j]) > 0.35 and i - max(slots[j]['pos'], default=i) <= 2:
                         continue  # >~75 km/h jump between consecutive frames: detection glitch
                     slots[j]['pos'][i] = p['xy']; slots[j]['box'][i] = p['box']; last[j] = p['xy']
+            _apply_seed(slots, side, seed)
             for sl in slots:
                 if len(sl['pos']) > 0.3 * len(idx): players.append(sl)
     # series: fill short gaps, smooth, speeds

@@ -152,9 +152,14 @@ struct NewMatchView: View {
         start = 0
     }
 
-    private func begin() {
+    private func begin(_ seed: MatchSeed?) {
         guard let video else { return }
         let useClip = clip > 0 && length > clip
+        var seed = seed
+        if let s = seed {
+            let t = s.t - (useClip ? start : 0)
+            seed = (t >= 0 && (!useClip || t <= clip)) ? MatchSeed(t: t, players: s.players) : nil
+        }
         var picked: [String: String] = [:]
         for slot in kind.slots { if let n = names[slot], !n.isEmpty { picked[slot.rawValue] = n } }
         let draft = Match(
@@ -164,7 +169,8 @@ struct NewMatchView: View {
             layers: OverlayLayer.allCases.filter(layers.contains),
             clipStart: useClip ? start : nil,
             clipDuration: useClip ? clip : nil,
-            court: manualCourt ? marks.map { [Double($0.x), Double($0.y)] } : nil
+            court: manualCourt ? marks.map { [Double($0.x), Double($0.y)] } : nil,
+            seed: seed
         )
         if manualCourt, let data = try? JSONEncoder().encode(marks.map { [Double($0.x), Double($0.y)] }) {
             lastMarks = String(decoding: data, as: UTF8.self)
@@ -184,7 +190,7 @@ struct CourtConfirmView: View {
     @Binding var manual: Bool
     @Binding var marks: [CGPoint]
     @Binding var names: [PlayerSlot: String]
-    var onStart: () -> Void
+    var onStart: (MatchSeed?) -> Void
 
     @AppStorage("serverURL") private var serverURL = "http://192.168.1.10:8000"
     @State private var time: Double = 0
@@ -244,7 +250,7 @@ struct CourtConfirmView: View {
                 .buttonStyle(.bordered)
                 .disabled(checking || image == nil)
 
-                Button(action: onStart) {
+                Button { onStart(seed) } label: {
                     Text("Phân tích").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -267,6 +273,14 @@ struct CourtConfirmView: View {
         .task {
             if Demo.screen != nil { result = Demo.preview(manual: manual, marks: marks) }
         }
+    }
+
+    /// Player positions from the checked preview (time is absolute here; begin() makes it clip-relative).
+    private var seed: MatchSeed? {
+        guard let r = result else { return nil }
+        var players: [String: [Double]] = [:]
+        for p in r.players { if let xy = p.courtXY { players[p.slot] = xy } }
+        return players.isEmpty ? nil : MatchSeed(t: time, players: players)
     }
 
     private var hint: String {

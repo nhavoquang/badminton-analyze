@@ -6,6 +6,7 @@ struct JobOptions: Encodable {
     var layers: [String]
     var names: [String: String]
     var court: [[Double]]?
+    var seed: MatchSeed?
 }
 
 struct JobStatus: Decodable {
@@ -19,6 +20,15 @@ struct JobStatus: Decodable {
 struct PreviewPlayer: Decodable, Hashable {
     var slot: String
     var box: [Double]  // x0, y0, x1, y1 as fractions of the frame
+    var courtXY: [Double]?  // position on court in metres
+
+    enum CodingKeys: String, CodingKey { case slot, box, courtXY = "court_xy" }
+}
+
+/// Who stood where on the frame the user checked; keeps each name on the right player during tracking.
+struct MatchSeed: Codable, Hashable {
+    var t: Double  // seconds into the analysed clip
+    var players: [String: [Double]]
 }
 
 /// What the server sees on one frame: court lines (polylines in frame fractions) and player slots.

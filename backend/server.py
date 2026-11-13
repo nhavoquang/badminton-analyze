@@ -41,7 +41,7 @@ def worker():
         try:
             pipeline.run(job['src'], job['dir'], job['opts'].get('start'), job['opts'].get('duration'),
                          job['opts'].get('layers'), job['opts'].get('names'), prog,
-                         marks=job['opts'].get('court'))
+                         marks=job['opts'].get('court'), seed=job['opts'].get('seed'))
             job['status'], job['progress'] = 'done', 1.0
         except Exception as e:  # report to the app instead of crashing the worker
             job['status'], job['error'] = 'failed', str(e)
@@ -96,4 +96,4 @@ def job_video(jid: str):
 def job_stats(jid: str):
     p = os.path.join(_job(jid)['dir'], 'stats.json')
     if not os.path.exists(p): raise HTTPException(409, 'not ready')
-    return json.load(open(p))
+    return json.load(open(p, encoding='utf-8'))

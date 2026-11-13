@@ -191,17 +191,17 @@ def assign_hits(cands, pts, players, fps):
     return hits
 
 
-def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None):
-    D, players = track.run(det_json)
+def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None, seed=None):
+    D, players = track.run(det_json, seed)
     if names: NAMES_OVERRIDE.update(names)
     fps = D['fps']; F = D['frames']
     sh = None
     if shuttle_json:
         import json
-        S = json.load(open(shuttle_json))
+        S = json.load(open(shuttle_json, encoding='utf-8'))
         pts = {int(k): tuple(v) for k, v in S['pts'].items()}
         sh = {'pts': pts, 'hits': assign_hits([c for c in S['cands'] if c in pts], pts, players, fps)}
-        json.dump([{k: v for k, v in h.items()} for h in sh['hits']], open(shuttle_json.replace('.json', '_hits.json'), 'w'))
+        json.dump([{k: v for k, v in h.items()} for h in sh['hits']], open(shuttle_json.replace('.json', '_hits.json'), 'w', encoding='utf-8'))
     cap = cv2.VideoCapture(video)
     w, h = int(cap.get(3)), int(cap.get(4))
     enc = subprocess.Popen([tools.ffmpeg(), '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',

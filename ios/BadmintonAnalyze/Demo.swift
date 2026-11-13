@@ -48,7 +48,7 @@ private struct DemoCourt: View {
     var body: some View {
         NavigationStack {
             CourtConfirmView(video: nil, start: 0, length: 14, kind: .doubles,
-                             manual: $manual, marks: $marks, names: $names, onStart: {})
+                             manual: $manual, marks: $marks, names: $names, onStart: { _ in })
         }
     }
 }
