@@ -1,0 +1,100 @@
+2026-11-13 07:59:49.590 Df BadmintonAnalyze[25992:11ba6] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=25992 task=BadmintonAnalyze[25992]/0#-1 LF=22
+2026-11-13 07:59:49.594 Df BadmintonAnalyze[25992:11bf5] [com.apple.BoardServices:XPCErrors] [C:1] Alloc com.apple.frontboard.systemappservices
+2026-11-13 07:59:49.743 Df BadmintonAnalyze[25992:11ba6] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-13 07:59:49.743 Df BadmintonAnalyze[25992:11ba6] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 07:59:49.744 Df BadmintonAnalyze[25992:11ba6] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 07:59:49.744 Df BadmintonAnalyze[25992:11ba6] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 07:59:49.774 Df BadmintonAnalyze[25992:11ba6] [com.apple.BacklightServices:scenes] 0x600000c0ac70 setDelegate:<0x600000c0a0a0 _UIBacklightEnvironment> hasDelegate:YES for environment:sceneID:com.nhavo.badmintonanalyze-default
+2026-11-13 07:59:49.775 Df BadmintonAnalyze[25992:11ba6] [com.apple.BoardServices:XPCErrors] [C:2] Alloc com.apple.backboard.hid-services.xpc
+2026-11-13 07:59:49.779 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-13 07:59:49.779 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:KeyWindow] Scene target of keyboard event deferring environment did change: 1; scene: UIWindowScene: 0x10ce09160; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 07:59:49.779 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10ce09160; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 07:59:49.779 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-13 07:59:50.115 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:KeyWindow] Window did become application key: UIWindow: 0x10c80ea20; contextId: 0xFC945B6B; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 07:59:50.122 Df BadmintonAnalyze[25992:11bf8] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002609f20; token: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default; status: ancestor> was:target
+2026-11-13 07:59:50.134 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 07:59:50.629 Df BadmintonAnalyze[25992:11bf1] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=25992 task=BadmintonAnalyze[25992]/0#-1 LF=22
+2026-11-13 07:59:51.232 Df BadmintonAnalyze[25992:11ba6] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-13 07:59:51.499 Df BadmintonAnalyze[25992:11bf1] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-13 07:59:52.249 Df BadmintonAnalyze[25992:11ba6] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [CA542F36-06AC-49AD-B9EA-8DD32489AB23] (reporting strategy default)>
+2026-11-13 07:59:52.249 Df BadmintonAnalyze[25992:11ba6] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [528EDDBA-3647-4581-91EC-2F902B8CEAA9] (reporting strategy default)>
+2026-11-13 07:59:52.249 Df BadmintonAnalyze[25992:11ba6] [com.apple.network:activity] Set activity <nw_activity 50:1 [CA542F36-06AC-49AD-B9EA-8DD32489AB23] (reporting strategy default)> as the global parent
+2026-11-13 07:59:52.282 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 07:59:52.293 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10ce09160; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 07:59:52.338 Df BadmintonAnalyze[25992:11ba6] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 07:59:52.517 Df BadmintonAnalyze[25992:11ba6] [com.apple.network:activity] <nw_activity 50:1 [CA542F36-06AC-49AD-B9EA-8DD32489AB23] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 4208ms
+2026-11-13 07:59:52.518 Df BadmintonAnalyze[25992:11ba6] [com.apple.network:activity] <nw_activity 50:2 [528EDDBA-3647-4581-91EC-2F902B8CEAA9] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 4208ms
+2026-11-13 07:59:52.518 Df BadmintonAnalyze[25992:11ba6] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [CA542F36-06AC-49AD-B9EA-8DD32489AB23] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-13 08:00:07.243 Df BadmintonAnalyze[26377:1205c] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=26377 task=BadmintonAnalyze[26377]/0#-1 LF=22
+2026-11-13 08:00:07.247 Df BadmintonAnalyze[26377:120bc] [com.apple.BoardServices:XPCErrors] [C:1] Alloc com.apple.frontboard.systemappservices
+2026-11-13 08:00:08.071 Df BadmintonAnalyze[26377:1205c] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-13 08:00:08.072 Df BadmintonAnalyze[26377:1205c] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:08.072 Df BadmintonAnalyze[26377:1205c] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:08.073 Df BadmintonAnalyze[26377:1205c] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:08.346 Df BadmintonAnalyze[26377:1205c] [com.apple.BacklightServices:scenes] 0x600000c17480 setDelegate:<0x600000c17570 _UIBacklightEnvironment> hasDelegate:YES for environment:sceneID:com.nhavo.badmintonanalyze-default
+2026-11-13 08:00:08.348 Df BadmintonAnalyze[26377:1205c] [com.apple.BoardServices:XPCErrors] [C:2] Alloc com.apple.backboard.hid-services.xpc
+2026-11-13 08:00:08.352 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-13 08:00:08.353 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:KeyWindow] Scene target of keyboard event deferring environment did change: 1; scene: UIWindowScene: 0x10c413520; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:08.353 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10c413520; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:08.353 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-13 08:00:09.305 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:KeyWindow] Window did become application key: UIWindow: 0x10c416210; contextId: 0x2177C6D9; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:09.311 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 08:00:09.313 Df BadmintonAnalyze[26377:12130] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x6000026121c0; token: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default; status: ancestor> was:target
+2026-11-13 08:00:10.510 Df BadmintonAnalyze[26377:1212d] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=26377 task=BadmintonAnalyze[26377]/0#-1 LF=22
+2026-11-13 08:00:18.746 Df BadmintonAnalyze[26377:1205c] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-13 08:00:19.108 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-13 08:00:19.108 Df BadmintonAnalyze[26377:1205c] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-13 08:00:19.417 E  BadmintonAnalyze[26377:1205c] (libCoreFSCache.dylib) Errors found! Invalidating cache...
+2026-11-13 08:00:20.103 E  BadmintonAnalyze[26377:1205c] (libCoreFSCache.dylib) Errors found! Invalidating cache...
+2026-11-13 08:00:21.124 F  BadmintonAnalyze[26377:1205c] [com.apple.renderbox:error] building pipeline stroke_lines-oia6pa8feba4 took 1.707946 seconds
+2026-11-13 08:00:23.423 Df BadmintonAnalyze[27114:12757] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=27114 task=BadmintonAnalyze[27114]/0#-1 LF=22
+2026-11-13 08:00:23.431 Df BadmintonAnalyze[27114:1277a] [com.apple.BoardServices:XPCErrors] [C:1] Alloc com.apple.frontboard.systemappservices
+2026-11-13 08:00:23.620 Df BadmintonAnalyze[27114:12757] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-13 08:00:23.621 Df BadmintonAnalyze[27114:12757] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:23.623 Df BadmintonAnalyze[27114:12757] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:23.624 Df BadmintonAnalyze[27114:12757] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:24.153 Df BadmintonAnalyze[27114:12757] [com.apple.BoardServices:XPCErrors] [C:2] Alloc com.apple.backboard.hid-services.xpc
+2026-11-13 08:00:24.162 Df BadmintonAnalyze[27114:12757] [com.apple.BacklightServices:scenes] 0x600000c1fcc0 setDelegate:<0x600000c1fcf0 _UIBacklightEnvironment> hasDelegate:YES for environment:sceneID:com.nhavo.badmintonanalyze-default
+2026-11-13 08:00:24.167 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-13 08:00:24.167 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:KeyWindow] Scene target of keyboard event deferring environment did change: 1; scene: UIWindowScene: 0x10720a3c0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:24.167 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10720a3c0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:24.167 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-13 08:00:24.549 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:KeyWindow] Window did become application key: UIWindow: 0x10720c830; contextId: 0xAF81AF90; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:24.553 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 08:00:24.556 Df BadmintonAnalyze[27114:1277b] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002605560; token: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default; status: ancestor> was:target
+2026-11-13 08:00:24.730 Df BadmintonAnalyze[27114:12779] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=27114 task=BadmintonAnalyze[27114]/0#-1 LF=22
+2026-11-13 08:00:25.621 Df BadmintonAnalyze[27114:12757] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-13 08:00:25.920 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-13 08:00:25.920 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-13 08:00:26.848 Df BadmintonAnalyze[27114:12757] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [DDC6CC97-CF55-420F-A9DE-2CC6D62398AB] (reporting strategy default)>
+2026-11-13 08:00:26.848 Df BadmintonAnalyze[27114:12757] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [70C99C8C-40A2-4B92-8912-840BE884C132] (reporting strategy default)>
+2026-11-13 08:00:26.848 Df BadmintonAnalyze[27114:12757] [com.apple.network:activity] Set activity <nw_activity 50:1 [DDC6CC97-CF55-420F-A9DE-2CC6D62398AB] (reporting strategy default)> as the global parent
+2026-11-13 08:00:26.853 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 08:00:26.864 Df BadmintonAnalyze[27114:12757] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10720a3c0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:26.885 Df BadmintonAnalyze[27114:12757] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=27114 task=BadmintonAnalyze[27114]/0#-1 LF=22
+2026-11-13 08:00:38.918 Df BadmintonAnalyze[27830:12dac] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=27830 task=BadmintonAnalyze[27830]/0#-1 LF=22
+2026-11-13 08:00:38.924 Df BadmintonAnalyze[27830:12dcc] [com.apple.BoardServices:XPCErrors] [C:1] Alloc com.apple.frontboard.systemappservices
+2026-11-13 08:00:39.126 Df BadmintonAnalyze[27830:12dac] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-13 08:00:39.127 Df BadmintonAnalyze[27830:12dac] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:39.128 Df BadmintonAnalyze[27830:12dac] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:39.128 Df BadmintonAnalyze[27830:12dac] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-13 08:00:39.162 Df BadmintonAnalyze[27830:12dac] [com.apple.BacklightServices:scenes] 0x600000c126d0 setDelegate:<0x600000c127c0 _UIBacklightEnvironment> hasDelegate:YES for environment:sceneID:com.nhavo.badmintonanalyze-default
+2026-11-13 08:00:39.163 Df BadmintonAnalyze[27830:12dac] [com.apple.BoardServices:XPCErrors] [C:2] Alloc com.apple.backboard.hid-services.xpc
+2026-11-13 08:00:39.167 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-13 08:00:39.167 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:KeyWindow] Scene target of keyboard event deferring environment did change: 1; scene: UIWindowScene: 0x10510a2e0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:39.168 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10510a2e0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:39.168 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-13 08:00:39.269 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:KeyWindow] Window did become application key: UIWindow: 0x105610000; contextId: 0x6DA08258; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:39.275 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 08:00:39.275 Df BadmintonAnalyze[27830:12dc1] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002609320; token: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default; status: ancestor> was:target
+2026-11-13 08:00:39.485 Df BadmintonAnalyze[27830:12dac] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [79857FBB-ED1A-4DD1-85F8-F6FF19B00034] (reporting strategy default)>
+2026-11-13 08:00:39.486 Df BadmintonAnalyze[27830:12dac] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [1D3C52EA-47A7-4903-BB48-C4AB5F4A17C8] (reporting strategy default)>
+2026-11-13 08:00:39.486 Df BadmintonAnalyze[27830:12dac] [com.apple.network:activity] Set activity <nw_activity 50:1 [79857FBB-ED1A-4DD1-85F8-F6FF19B00034] (reporting strategy default)> as the global parent
+2026-11-13 08:00:39.493 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 08:00:39.516 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x10510a2e0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Acom.nhavo.badmintonanalyze-default
+2026-11-13 08:00:39.523 Df BadmintonAnalyze[27830:12dac] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.nhavo.badmintonanalyze-default  persistentID: 35A74023-E3A8-4713-90FA-292CF3B86807
+2026-11-13 08:00:39.603 Df BadmintonAnalyze[27830:12dac] [com.apple.network:activity] <nw_activity 50:1 [79857FBB-ED1A-4DD1-85F8-F6FF19B00034] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 2563ms
+2026-11-13 08:00:39.603 Df BadmintonAnalyze[27830:12dac] [com.apple.network:activity] <nw_activity 50:2 [1D3C52EA-47A7-4903-BB48-C4AB5F4A17C8] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 2563ms
+2026-11-13 08:00:39.603 Df BadmintonAnalyze[27830:12dac] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [79857FBB-ED1A-4DD1-85F8-F6FF19B00034] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-13 08:00:40.868 Df BadmintonAnalyze[27830:12dce] [com.apple.securityd:SecWarning] SecTaskLoadEntitlements failed error=22 cs_flags=200, pid=27830 task=BadmintonAnalyze[27830]/0#-1 LF=22
+2026-11-13 08:00:41.100 Df BadmintonAnalyze[27830:12dac] [PrototypeTools:domain] Not observing PTDefaults on customer install.
