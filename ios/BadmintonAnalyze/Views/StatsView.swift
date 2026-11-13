@@ -4,7 +4,7 @@ struct StatsView: View {
     var match: Match
     @State private var selected: String?
 
-    private var summary: [PlayerSummary] { match.stats?.summary ?? [] }
+    private var summary: [PlayerSummary] { match.playerSummary }
     private var current: PlayerSummary? { summary.first { $0.id == selected } ?? summary.first }
 
     var body: some View {
@@ -76,7 +76,7 @@ struct PlayersView: View {
     private var rows: [(name: String, matches: Int, distance: Double, top: Double)] {
         var acc: [String: (Int, Double, Double)] = [:]
         for m in store.matches {
-            for p in m.stats?.summary ?? [] {
+            for p in m.playerSummary {
                 let v = acc[p.name] ?? (0, 0, 0)
                 acc[p.name] = (v.0 + 1, v.1 + p.distanceM, max(v.2, p.maxSpeedKmh))
             }

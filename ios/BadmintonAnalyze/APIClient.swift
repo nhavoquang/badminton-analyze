@@ -7,6 +7,8 @@ struct JobOptions: Encodable {
     var names: [String: String]
     var court: [[Double]]?
     var seed: MatchSeed?
+    /// Slot -> "#RRGGBB" for the overlay.
+    var colors: [String: String]?
 }
 
 struct JobStatus: Decodable {

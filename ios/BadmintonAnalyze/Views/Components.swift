@@ -59,3 +59,28 @@ extension Double {
     var oneDecimal: String { formatted(.number.precision(.fractionLength(1))) }
     var percent: String { formatted(.percent.precision(.fractionLength(0))) }
 }
+
+/// Compact colour picker for a player: tap the dot, pick from the iOS system colours.
+struct ColorMenu: View {
+    @Binding var selection: PlayerTint
+
+    var body: some View {
+        Menu {
+            Picker("Màu", selection: $selection) {
+                ForEach(PlayerTint.allCases) { t in
+                    Label { Text(t.title) } icon: { Image(uiImage: t.swatch) }.tag(t)
+                }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Circle().fill(selection.color).frame(width: 14, height: 14)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(minWidth: 30, minHeight: 30)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Màu người chơi: \(selection.title)")
+    }
+}

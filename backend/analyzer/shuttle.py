@@ -72,26 +72,42 @@ def _prep(frame_bgr):
     return np.moveaxis(rgb, -1, 0).astype(np.float32) / 255.0
 
 
-def _locate(hm):
-    """Centre of the largest blob in a binary heatmap, or None."""
-    m = (hm > 0.5).astype(np.uint8)
-    if not m.any(): return None
-    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    x, y, w, h = max((cv2.boundingRect(c) for c in cnts), key=lambda r: r[2] * r[3])
-    return x + w / 2, y + h / 2
+def _blobs(hm, thr=0.35):
+    """All heatmap blobs above thr: (x, y, peak) in heatmap pixels."""
+    m = (hm > thr).astype(np.uint8)
+    if not m.any(): return []
+    n, lab, stats, cent = cv2.connectedComponentsWithStats(m)
+    out = []
+    for k in range(1, n):
+        peak = float(hm[lab == k].max())
+        out.append((float(cent[k][0]), float(cent[k][1]), peak))
+    return out
+
+
+def tiles(W, H):
+    """Landscape crops the network sees at close to native scale. A wide frame is one tile; a portrait
+    phone video is cut into overlapping 16:9 bands (squashing it into 512x288 makes the shuttle vanish)."""
+    if W / H >= 1.4: return [(0, 0, int(W), int(H))]
+    th = int(round(W * 9 / 16))
+    n = int(np.ceil((H - th) / (0.9 * th))) + 1
+    ys = np.linspace(0, H - th, n).astype(int)
+    return [(0, int(y), int(W), th) for y in ys]
 
 
 def track_segment(model, cap, start, end, progress=None):
-    """Track the shuttle on frames [start, end) of an open cv2.VideoCapture."""
+    """Track the shuttle on frames [start, end) of an open cv2.VideoCapture. Returns frame -> list of
+    candidates (x, y, score) in image pixels; pick() turns them into one trajectory."""
     W = cap.get(cv2.CAP_PROP_FRAME_WIDTH); H = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    sx, sy = W / W_IN, H / H_IN
+    T = tiles(W, H)
     # background = per-pixel median of up to 60 frames of this camera shot
     idx = np.linspace(start, end - 1, min(60, end - start)).astype(int)
     samples = []
     for i in idx:
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(i)); ok, f = cap.read()
-        if ok: samples.append(cv2.resize(f, (W_IN, H_IN), interpolation=cv2.INTER_AREA))
-    median = _prep(np.median(np.array(samples), 0).astype(np.uint8))
+        if ok: samples.append(f)
+    med = np.median(np.array(samples), 0).astype(np.uint8)
+    crop = lambda img, t: img[t[1]:t[1] + t[3], t[0]:t[0] + t[2]]
+    medians = [_prep(crop(med, t)) for t in T]
     cap.set(cv2.CAP_PROP_POS_FRAMES, start)
     out = {}
     i = start
@@ -106,13 +122,59 @@ def track_segment(model, cap, start, end, progress=None):
             if not frames: break
             n = len(frames)
             frames += [frames[-1]] * (SEQ - n)
-            x = np.concatenate([median] + [_prep(f) for f in frames], 0)[None]
-            hm = model(torch.from_numpy(x))[0].numpy()
+            batch = np.stack([np.concatenate([medians[ti]] + [_prep(crop(f, t)) for f in frames], 0) for ti, t in enumerate(T)])
+            hms = model(torch.from_numpy(batch)).numpy()
             for k in range(n):
-                p = _locate(hm[k])
-                out[i + k] = (p[0] * sx, p[1] * sy) if p else None
+                cands = []
+                for ti, t in enumerate(T):
+                    sx, sy = t[2] / W_IN, t[3] / H_IN
+                    for x, y, pk in _blobs(hms[ti, k]):
+                        cands.append((t[0] + x * sx, t[1] + y * sy, pk))
+                out[i + k] = _dedupe(cands, 0.02 * W)
             i += n
             if progress: progress((i - start) / max(end - start, 1))
+    return out
+
+
+def _dedupe(c, r):
+    c = sorted(c, key=lambda p: -p[2]); keep = []
+    for p in c:
+        if all(np.hypot(p[0] - q[0], p[1] - q[1]) > r for q in keep): keep.append(p)
+    return keep
+
+
+def pick(cands, fps, width):
+    """Choose one candidate per frame so the path is physically continuous (Viterbi over candidates +
+    a 'not visible' state). Fast shuttles move up to ~6% of the frame width per frame at 30 fps."""
+    frames = sorted(cands)
+    if not frames: return {}
+    gate = 0.06 * width * 30 / fps
+    MISS = 1.2  # cost of a frame without the shuttle
+    states, back = [], []
+    prev = None
+    for f in frames:
+        opts = [None] + [c for c in cands[f]]
+        cost = []
+        bp = []
+        for o in opts:
+            emit = MISS if o is None else 1.0 - o[2]
+            if prev is None:
+                cost.append(emit); bp.append(-1); continue
+            best, arg = 1e9, -1
+            for j, (po, pc) in enumerate(zip(prev_opts, prev)):
+                if o is None or po is None: tr = 0.0 if o is None else 0.3
+                else:
+                    d = np.hypot(o[0] - po[0], o[1] - po[1])
+                    tr = (d / gate) ** 2 if d < 2 * gate else 1e6
+                if pc + tr < best: best, arg = pc + tr, j
+            cost.append(best + emit); bp.append(arg)
+        states.append(opts); back.append(bp)
+        prev, prev_opts = cost, opts
+    j = int(np.argmin(prev)); out = {}
+    for t in range(len(frames) - 1, -1, -1):
+        o = states[t][j]
+        out[frames[t]] = (o[0], o[1]) if o is not None else None
+        j = back[t][j] if back[t][j] >= 0 else 0
     return out
 
 
@@ -135,10 +197,17 @@ def clean(points, fps, max_jump_frac=0.08, width=1920):
     keep = {f: v for f, v in keep.items() if f not in still}
     fr = sorted(keep)
     for a, b in zip(fr, fr[1:]):
-        if 1 < b - a <= int(0.15 * fps) + 1:
-            for f in range(a + 1, b):
-                t = (f - a) / (b - a)
-                keep[f] = (keep[a][0] * (1 - t) + keep[b][0] * t, keep[a][1] * (1 - t) + keep[b][1] * t)
+        if 1 < b - a <= int(0.4 * fps) + 1:
+            # fit a parabola (free flight) through a few points on each side of the gap
+            ctx = [g for g in fr if a - 6 <= g <= a] + [g for g in fr if b <= g <= b + 6]
+            if len(ctx) >= 4 and b - a > int(0.15 * fps) + 1:
+                t = np.array(ctx, float)
+                px = np.polyfit(t, [keep[g][0] for g in ctx], 2); py = np.polyfit(t, [keep[g][1] for g in ctx], 2)
+                for f in range(a + 1, b): keep[f] = (float(np.polyval(px, f)), float(np.polyval(py, f)))
+            elif b - a <= int(0.15 * fps) + 1:
+                for f in range(a + 1, b):
+                    t = (f - a) / (b - a)
+                    keep[f] = (keep[a][0] * (1 - t) + keep[b][0] * t, keep[a][1] * (1 - t) + keep[b][1] * t)
     return keep
 
 

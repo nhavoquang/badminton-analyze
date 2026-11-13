@@ -51,7 +51,7 @@ def _zones(p):
     return {'net': round(net, 2), 'mid': round(1 - net - back, 2), 'back': round(back, 2)}
 
 
-def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None, marks=None, seed=None):
+def run(src, work_dir, start=None, duration=None, layers=None, names=None, progress=None, marks=None, seed=None, colors=None):
     """seed: {'t': seconds into the clip, 'players': {slot: [x, y] court metres}} from the app's preview."""
     """progress(step_name, fraction_of_step, overall_fraction)"""
     os.makedirs(work_dir, exist_ok=True)
@@ -80,7 +80,8 @@ def run(src, work_dir, start=None, duration=None, layers=None, names=None, progr
     out = os.path.join(work_dir, 'result.mp4')
     players = render.run(clip, det, out, layers=set(layers) if layers else None, names=names,
                          progress=rep('render'), shuttle_json=sh_json,
-                         seed=dict(f=round(seed.get('t', 0) * json.load(open(det, encoding='utf-8'))['fps']), players=seed.get('players')) if seed else None)
+                         seed=dict(f=round(seed.get('t', 0) * json.load(open(det, encoding='utf-8'))['fps']), players=seed.get('players')) if seed else None,
+                         colors=colors)
     done += weights['render']
     fps = json.load(open(det, encoding='utf-8'))['fps']
     hits = getattr(render.run, 'hits', [])
@@ -121,7 +122,7 @@ def track_shuttle(clip, det_json, out_json, progress=None):
     for a, b, _ in runs:
         raw = shuttle.track_segment(model, cap, a, b,
                                     progress=(lambda x, a=a, b=b: progress((done + x * (b - a)) / total)) if progress else None)
-        seg = shuttle.clean(raw, fps, width=width)
+        seg = shuttle.clean(shuttle.pick(raw, fps, width), fps, width=width)
         pts.update(seg)
         cands += shuttle.find_hits(seg, fps)
         done += b - a

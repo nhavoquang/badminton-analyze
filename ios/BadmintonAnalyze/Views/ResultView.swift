@@ -8,7 +8,7 @@ struct ResultView: View {
     @State private var player: AVPlayer?
     @State private var showExport = false
 
-    private var summary: [PlayerSummary] { match.stats?.summary ?? [] }
+    private var summary: [PlayerSummary] { match.playerSummary }
 
     var body: some View {
         ScrollView {

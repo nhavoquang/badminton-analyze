@@ -21,7 +21,20 @@ def fonts(w, s):
     s = max(8, s)
     if (w, s) not in _FONTS: _FONTS[(w, s)] = font(w, s)
     return _FONTS[(w, s)]
-COL = {('far', 0): (45, 212, 191), ('far', 1): (167, 139, 250), ('near', 0): (251, 191, 36), ('near', 1): (251, 113, 133)}
+# player colours (RGB), iOS system colours; the app can override them per match (options.colors)
+DEFAULT_COL = {('near', 0): (10, 132, 255), ('near', 1): (255, 159, 10), ('far', 0): (48, 209, 88), ('far', 1): (255, 55, 95)}
+COL = dict(DEFAULT_COL)
+
+
+def set_colors(colors):
+    """colors: {'near0': '#RRGGBB', ...} from the app; anything missing keeps the default."""
+    COL.clear(); COL.update(DEFAULT_COL)
+    for k, v in (colors or {}).items():
+        try:
+            side, slot = k[:-1], int(k[-1]); v = v.lstrip('#')
+            if side in ('near', 'far') and len(v) == 6: COL[(side, slot)] = tuple(int(v[j:j + 2], 16) for j in (0, 2, 4))
+        except (ValueError, TypeError):
+            pass
 NAMES = {('far', 0): 'Sân xa', ('far', 1): 'Sân xa 2', ('near', 0): 'Sân gần', ('near', 1): 'Sân gần 2'}
 PANEL = (17, 20, 32, 210)
 
@@ -49,7 +62,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
             k = i - p['t0']; c = COL[(p['side'], p['slot'])][::-1]
             a = max(0, k - int(fps * 1.0))
             trail = court.to_img(H, np.stack([p['X'][a:k + 1], p['Y'][a:k + 1]], 1))
-            soft_trail(img, trail, c, lw(5))
+            soft_trail(img, trail, c, lw(4))
             foot_glow(img, H, p['X'][k], p['Y'][k], c)
     if sh and H is not None:
         img = draw_shuttle(img, i, sh, fps, layers, all_p)
@@ -66,17 +79,16 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
         k = i - p['t0']; c = COL[(p['side'], p['slot'])]
         bx = p['boxf'][i]; cx, top = (bx[0] + bx[2]) / 2, bx[1]
         label = name_of(p, all_p); sp = f"{p['v'][k]:.1f}"
-        tw = d.textlength(label, font=f_tag) + d.textlength(sp, font=f_tag) + S(56)
-        x0, y0 = cx - tw / 2, top - S(52)
-        d.rounded_rectangle((x0, y0, x0 + tw, y0 + S(38)), S(19), fill=PANEL, outline=c + (255,), width=max(1, round(S(2))))
-        d.ellipse((x0 + S(12), y0 + S(13), x0 + S(24), y0 + S(25)), fill=c)
-        d.text((x0 + S(32), y0 + S(19)), label, font=f_tag, fill='white', anchor='lm')
-        d.text((x0 + tw - S(12), y0 + S(19)), sp, font=f_tag, fill=c, anchor='rm')
-        d.polygon([(cx - S(7), y0 + S(38)), (cx + S(7), y0 + S(38)), (cx, y0 + S(46))], fill=c)
+        tw = d.textlength(label, font=f_tag) + d.textlength(sp, font=f_small) + S(52)
+        x0, y0 = cx - tw / 2, top - S(46)
+        d.rounded_rectangle((x0, y0, x0 + tw, y0 + S(34)), S(17), fill=GLASS)
+        d.ellipse((x0 + S(12), y0 + S(12), x0 + S(22), y0 + S(22)), fill=c)
+        d.text((x0 + S(30), y0 + S(17)), label, font=f_tag, fill='white', anchor='lm')
+        d.text((x0 + tw - S(13), y0 + S(17)), sp, font=f_small, fill=(235, 235, 245, 150), anchor='rm')
     if act and 'map' in layers:
         # mini-map (top-down court), top right
         s = S(34); mw, mh = court.W * s, court.L * s; mx, my = W - mw - S(48), S(48)
-        d.rounded_rectangle((mx - S(24), my - S(24), mx + mw + S(24), my + mh + S(24)), S(16), fill=PANEL)
+        d.rounded_rectangle((mx - S(24), my - S(24), mx + mw + S(24), my + mh + S(24)), S(20), fill=GLASS)
         for (a, b) in court.SEG:
             d.line([(mx + a[0] * s, my + a[1] * s), (mx + b[0] * s, my + b[1] * s)], fill=(200, 205, 215, 200), width=max(1, round(S(2))))
         d.line([(mx - S(10), my + court.L / 2 * s), (mx + mw + S(10), my + court.L / 2 * s)], fill=(255, 255, 255, 255), width=max(1, round(S(4))))
@@ -86,7 +98,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
             pts = [(mx + x * s, my + y * s) for x, y in zip(p['X'][a:k + 1:3], p['Y'][a:k + 1:3])]
             if len(pts) > 1: d.line(pts, fill=c + (170,), width=max(1, round(S(4))), joint='curve')
             x, y = mx + p['X'][k] * s, my + p['Y'][k] * s
-            d.ellipse((x - S(10), y - S(10), x + S(10), y + S(10)), fill=c, outline='white', width=max(1, round(S(2))))
+            d.ellipse((x - S(8), y - S(8), x + S(8), y + S(8)), fill=c)
     if act and 'speed' in layers:
         # stat cards along the bottom, wrapping into rows on narrow (portrait) frames
         gap = S(16); per_row = max(1, min(len(act), int((W - 2 * m + gap) // (S(330) + gap))))
@@ -96,10 +108,10 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
         for n, p in enumerate(sorted(act, key=lambda q: (q['side'] != 'far', q['slot']))):
             k = i - p['t0']; c = COL[(p['side'], p['slot'])]
             x0 = m + (n % per_row) * (cw + gap); y0 = Hh - m - (rows - n // per_row) * (ch + gap) + gap
-            d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), S(16), fill=PANEL)
-            d.rectangle((x0, y0 + S(16), x0 + S(5), y0 + ch - S(16)), fill=c)
-            d.text((x0 + S(22), y0 + S(14)), name_of(p, all_p), font=f_name, fill='white')
-            d.text((x0 + cw - S(70), y0 + S(8)), f"{p['v'][k]:.1f}", font=f_big, fill=c, anchor='ra')
+            d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), S(20), fill=GLASS)
+            d.ellipse((x0 + S(20), y0 + S(25), x0 + S(32), y0 + S(37)), fill=c)
+            d.text((x0 + S(42), y0 + S(16)), name_of(p, all_p), font=f_name, fill='white')
+            d.text((x0 + cw - S(70), y0 + S(8)), f"{p['v'][k]:.1f}", font=f_big, fill='white', anchor='ra')
             d.text((x0 + cw - S(18), y0 + S(26)), 'km/h', font=f_small, fill=(180, 186, 200), anchor='ra')
             d.text((x0 + S(22), y0 + S(66)), f"Tối đa {p['vmax'][k]:.1f} km/h  ·  {p['dist'][k]:.1f} m", font=f_small, fill=(200, 205, 215))
             a = max(0, k - int(fps * 6)); vs = p['v'][a:k + 1]
@@ -111,7 +123,8 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
                 d.ellipse((xs[-1] - S(4), ys[-1] - S(4), xs[-1] + S(4), ys[-1] + S(4)), fill='white')
     return cv2.cvtColor(np.array(Image.alpha_composite(im, ui).convert('RGB')), cv2.COLOR_RGB2BGR)
 
-SHUTTLE = (10, 214, 255)  # BGR of iOS yellow #FFD60A
+SHUTTLE = (255, 255, 255)
+GLASS = (28, 28, 30, 150)  # iOS dark material
 
 
 def _blend(img, x0, y0, color_layer, alpha):
@@ -148,7 +161,7 @@ def foot_glow(img, H, x, y, color, r=0.55, rings=10):
         poly = circle_poly(H, x, y, r * (1 - n / rings)) - [x0, y0]
         tmp = np.zeros_like(m); cv2.fillPoly(tmp, [poly.astype(np.int32)], 1.0, cv2.LINE_AA); m += tmp
     m = cv2.GaussianBlur(m / rings, (0, 0), max(0.8, (x1 - x0) / 120))
-    alpha = 0.9 * m ** 0.9
+    alpha = 0.6 * m ** 1.2
     _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), alpha)
 
 
@@ -165,7 +178,7 @@ def soft_trail(img, pts, color, width):
         t = j / (n - 1)
         a, b = (pts[j - 1] - [x0, y0]).astype(int), (pts[j] - [x0, y0]).astype(int)
         cv2.line(m, tuple(a), tuple(b), float(t), max(1, int(width * (0.4 + 0.6 * t))), cv2.LINE_AA)
-    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), 0.3 * m)
+    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), 0.18 * m)
 
 
 def _smooth(run, per=4):
@@ -184,78 +197,62 @@ def _smooth(run, per=4):
 
 
 def draw_shuttle(img, i, sh, fps, layers, all_p=()):
-    """Shuttle as a glowing comet (tapered, fading tail + bright head) and racket hits as a burst."""
+    """Shuttle path as a thin white line that tapers and fades out behind the shuttle (with a faint
+    shadow so it reads on a bright floor), and racket hits as a single ring in the hitter's colour."""
     pts = sh['pts']; u = min(img.shape[:2]) / 1080
     if 'path' in layers:
-        span = int(fps * 0.6)
+        span = int(fps * 0.5)
         runs, cur = [], []
         for f in range(i - span, i + 1):
             if pts.get(f) is not None: cur.append((f, pts[f]))
             elif cur: runs.append(cur); cur = []
         if cur: runs.append(cur)
         allp = [q for r in runs for _, q in r]
-        box = _roi(img, allp, 40 * u) if allp else None
+        box = _roi(img, allp, 20 * u) if allp else None
         if box is not None:
             x0, y0, x1, y1 = box
-            core = np.zeros((y1 - y0, x1 - x0), np.float32); glow = np.zeros_like(core)
+            line = np.zeros((y1 - y0, x1 - x0), np.float32)
             for r in runs:
                 if len(r) < 2: continue
                 c = _smooth([q for _, q in r]) - [x0, y0]
                 n = len(c)
                 for j in range(1, n):
-                    f = r[0][0] + j * (len(r) - 1) / (n - 1)  # frame this point belongs to
+                    f = r[0][0] + j * (len(r) - 1) / (n - 1)
                     t = max(0.0, min(1.0, 1 - (i - f) / span))  # 1 = now, 0 = end of the tail
-                    a, b = tuple(c[j - 1].astype(int)), tuple(c[j].astype(int))
-                    cv2.line(glow, a, b, t, max(1, int(14 * u * t + 2)), cv2.LINE_AA)
-                    cv2.line(core, a, b, t ** 1.5, max(1, int(5 * u * t + 1)), cv2.LINE_AA)
-            glow = cv2.GaussianBlur(glow, (0, 0), 6 * u + 1)
-            _add(img, x0, y0, glow[..., None] * np.array(SHUTTLE, np.float32) * 0.9)
-            _blend(img, x0, y0, np.full(core.shape + (3,), (180, 240, 255), np.float32), np.clip(core, 0, 1))
+                    cv2.line(line, tuple(c[j - 1].astype(int)), tuple(c[j].astype(int)), t ** 1.3,
+                             max(1, int(4 * u * t + 1)), cv2.LINE_AA)
+            shadow = cv2.GaussianBlur(line, (0, 0), 3 * u + 1)
+            _blend(img, x0, y0, np.zeros(line.shape + (3,), np.float32), np.clip(shadow * 0.35, 0, 1))
+            _blend(img, x0, y0, np.full(line.shape + (3,), SHUTTLE, np.float32), np.clip(line * 0.9, 0, 1))
         if pts.get(i):
-            x, y = pts[i]
-            b2 = _roi(img, [(x, y)], 30 * u)
+            x, y = int(pts[i][0]), int(pts[i][1])
+            b2 = _roi(img, [(x, y)], 14 * u)
             if b2:
-                x0, y0, x1, y1 = b2
-                g = np.zeros((y1 - y0, x1 - x0), np.float32)
-                cv2.circle(g, (int(x - x0), int(y - y0)), max(2, int(9 * u)), 1.0, -1, cv2.LINE_AA)
-                g = cv2.GaussianBlur(g, (0, 0), 7 * u + 1)
-                _add(img, x0, y0, g[..., None] * np.array(SHUTTLE, np.float32) * 1.6)
-            cv2.circle(img, (int(x), int(y)), max(2, int(5 * u)), (255, 255, 255), -1, cv2.LINE_AA)
+                bx0, by0, bx1, by1 = b2
+                g = np.zeros((by1 - by0, bx1 - bx0), np.float32)
+                cv2.circle(g, (x - bx0, y - by0), max(3, int(7 * u)), 1.0, -1, cv2.LINE_AA)
+                _blend(img, bx0, by0, np.zeros(g.shape + (3,), np.float32), cv2.GaussianBlur(g, (0, 0), 2 * u + 1) * 0.4)
+            cv2.circle(img, (x, y), max(2, int(5 * u)), (255, 255, 255), -1, cv2.LINE_AA)
     if 'hits' in layers:
         for h in sh['hits']:
             age = (i - h['f']) / fps
-            if 0 <= age < 0.55: burst(img, h, age / 0.55, u)
+            if 0 <= age < 0.45: ripple(img, h, age / 0.45, u)
     return img
 
 
-def burst(img, h, q, u):
-    """Hit effect: flash, shockwave ring and sparks flying out, in the hitter's colour. q = 0..1 progress."""
+def ripple(img, h, q, u):
+    """Hit effect: one thin ring that grows and fades, in the hitter's colour. q = 0..1 progress."""
     side, slot = h['key'][:-1], int(h['key'][-1])
-    color = np.array(COL.get((side, slot), (255, 214, 10))[::-1], np.float32)
+    color = np.array(COL.get((side, slot), (255, 255, 255))[::-1], np.float32)
     x, y = h['xy']
-    R = 110 * u
-    box = _roi(img, [(x, y)], R + 20 * u)
+    R = 46 * u
+    box = _roi(img, [(x, y)], R + 8 * u)
     if box is None: return
     x0, y0, x1, y1 = box
-    cx, cy = x - x0, y - y0
     ease = 1 - (1 - q) ** 3
-    light = np.zeros((y1 - y0, x1 - x0), np.float32); white = np.zeros_like(light)
-    # flash
-    if q < 0.35:
-        cv2.circle(white, (int(cx), int(cy)), int(28 * u * (1 + q)), 1.0 - q / 0.35, -1, cv2.LINE_AA)
-    # shockwave
-    cv2.circle(light, (int(cx), int(cy)), int(15 * u + R * 0.8 * ease), 1 - q, max(1, int(9 * u * (1 - q) + 1)), cv2.LINE_AA)
-    # sparks
-    rng = np.random.default_rng(h['f'])
-    for ang in rng.uniform(0, 2 * np.pi, 12):
-        L = rng.uniform(0.6, 1.0)
-        r1, r2 = (20 * u + R * 0.55 * ease) * L, (30 * u + R * ease) * L
-        d = np.array([np.cos(ang), np.sin(ang)])
-        a = (cx + d[0] * r1, cy + d[1] * r1); b = (cx + d[0] * r2, cy + d[1] * r2)
-        cv2.line(light, tuple(map(int, a)), tuple(map(int, b)), 1 - q, max(1, int(4 * u * (1 - q) + 1)), cv2.LINE_AA)
-    g = cv2.GaussianBlur(light, (0, 0), 4 * u + 1)
-    _add(img, x0, y0, (g * 1.6)[..., None] * color)
-    _blend(img, x0, y0, np.full(light.shape + (3,), 255, np.float32), np.clip(light * 0.8 + cv2.GaussianBlur(white, (0, 0), 6 * u + 1), 0, 1))
+    m = np.zeros((y1 - y0, x1 - x0), np.float32)
+    cv2.circle(m, (int(x - x0), int(y - y0)), int(8 * u + R * ease), 1.0, max(1, int(3 * u)), cv2.LINE_AA)
+    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), m * (1 - q) ** 1.5 * 0.95)
 
 
 def hit_labels(d, i, sh, fps, all_p, u=1.0, f_tag=None):
@@ -297,7 +294,8 @@ def assign_hits(cands, pts, players, fps):
     return hits
 
 
-def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None, seed=None):
+def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None, seed=None, colors=None):
+    set_colors(colors)
     D, players = track.run(det_json, seed)
     if names: NAMES_OVERRIDE.update(names)
     fps = D['fps']; F = D['frames']

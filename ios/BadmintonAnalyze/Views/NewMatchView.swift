@@ -30,6 +30,7 @@ struct NewMatchView: View {
     @State private var title = ""
     @State private var kind: MatchKind = .doubles
     @State private var names: [PlayerSlot: String] = [:]
+    @AppStorage(PlayerTint.storageKey) private var tintStore = ""
     @State private var layers: Set<OverlayLayer> = [.feet, .path, .hits, .speed]
     @AppStorage("markCourt") private var manualCourt = true
     @AppStorage("lastCourtMarks") private var lastMarks = ""  // the phone often stands in the same spot
@@ -94,7 +95,7 @@ struct NewMatchView: View {
                 Section("Người chơi") {
                     ForEach(kind.slots) { slot in
                         HStack(spacing: 12) {
-                            PlayerDot(color: slot.color)
+                            ColorMenu(selection: tintBinding(for: slot))
                             TextField(slot.placeholder, text: binding(for: slot))
                             Text(slot.position).foregroundStyle(.secondary)
                         }
@@ -131,6 +132,16 @@ struct NewMatchView: View {
                 }
             }
         }
+    }
+
+    private func tintBinding(for slot: PlayerSlot) -> Binding<PlayerTint> {
+        Binding(
+            get: { _ = tintStore; return slot.tint },
+            set: { t in
+                var raw = (try? JSONDecoder().decode([String: String].self, from: Data(tintStore.utf8))) ?? [:]
+                raw[slot.rawValue] = t.rawValue
+                tintStore = String(decoding: (try? JSONEncoder().encode(raw)) ?? Data(), as: UTF8.self)
+            })
     }
 
     private func binding(for slot: PlayerSlot) -> Binding<String> {
@@ -170,7 +181,8 @@ struct NewMatchView: View {
             clipStart: useClip ? start : nil,
             clipDuration: useClip ? clip : nil,
             court: manualCourt ? marks.map { [Double($0.x), Double($0.y)] } : nil,
-            seed: seed
+            seed: seed,
+            colors: Dictionary(uniqueKeysWithValues: kind.slots.map { ($0.rawValue, $0.tint.rawValue) })
         )
         if manualCourt, let data = try? JSONEncoder().encode(marks.map { [Double($0.x), Double($0.y)] }) {
             lastMarks = String(decoding: data, as: UTF8.self)
