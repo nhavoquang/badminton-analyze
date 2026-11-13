@@ -89,6 +89,7 @@ final class MatchStore: ObservableObject {
             update(id) { $0.status = .downloading }
             guard let m = match(id) else { return }
             try await api.downloadVideo(job, to: m.resultURL)
+            try? await api.downloadVideo(job, to: m.plainURL, cards: false)  // older servers don't have it
             let stats = try await api.stats(job)
             update(id) { $0.stats = stats; $0.status = .done; $0.progress = 1 }
         } catch {

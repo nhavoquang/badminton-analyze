@@ -86,8 +86,8 @@ def job_status(jid: str):
 
 
 @app.get('/jobs/{jid}/video')
-def job_video(jid: str):
-    p = os.path.join(_job(jid)['dir'], 'result.mp4')
+def job_video(jid: str, cards: int = 1):
+    p = os.path.join(_job(jid)['dir'], 'result.mp4' if cards else 'result_plain.mp4')
     if not os.path.exists(p): raise HTTPException(409, 'not ready')
     return FileResponse(p, media_type='video/mp4', filename=f'badminton-{jid}.mp4')
 

@@ -228,6 +228,9 @@ struct Match: Codable, Identifiable, Hashable {
     var folder: URL { MatchStore.documents.appendingPathComponent(id.uuidString, isDirectory: true) }
     var sourceURL: URL { folder.appendingPathComponent("source.mov") }
     var resultURL: URL { folder.appendingPathComponent("result.mp4") }
+    /// Same video without the stat cards at the bottom (the player can collapse them).
+    var plainURL: URL { folder.appendingPathComponent("result_plain.mp4") }
+    var hasPlain: Bool { FileManager.default.fileExists(atPath: plainURL.path) }
     var hasResult: Bool { FileManager.default.fileExists(atPath: resultURL.path) }
 
     var subtitle: String {

@@ -81,7 +81,7 @@ def run(src, work_dir, start=None, duration=None, layers=None, names=None, progr
     players = render.run(clip, det, out, layers=set(layers) if layers else None, names=names,
                          progress=rep('render'), shuttle_json=sh_json,
                          seed=dict(f=round(seed.get('t', 0) * json.load(open(det, encoding='utf-8'))['fps']), players=seed.get('players')) if seed else None,
-                         colors=colors)
+                         colors=colors, out_plain=os.path.join(work_dir, 'result_plain.mp4'))
     done += weights['render']
     fps = json.load(open(det, encoding='utf-8'))['fps']
     hits = getattr(render.run, 'hits', [])

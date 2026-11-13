@@ -7,6 +7,10 @@ struct ResultView: View {
     var match: Match
     @State private var player: AVPlayer?
     @State private var showExport = false
+    @State private var aspect: CGFloat = 9 / 16
+    @AppStorage("showStatCards") private var showCards = true
+
+    private var videoURL: URL { showCards || !match.hasPlain ? match.resultURL : match.plainURL }
 
     private var summary: [PlayerSummary] { match.playerSummary }
 
@@ -14,8 +18,27 @@ struct ResultView: View {
         ScrollView {
             VStack(spacing: 16) {
                 VideoPlayer(player: player)
-                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .aspectRatio(aspect, contentMode: .fit)
+                    .frame(maxHeight: 560)
+                    .frame(maxWidth: .infinity)
                     .background(Color.black)
+
+                if match.hasPlain {
+                    Button {
+                        withAnimation(.snappy) { showCards.toggle() }
+                        swapVideo()
+                    } label: {
+                        Label(showCards ? "Ẩn thẻ số liệu" : "Hiện thẻ số liệu",
+                              systemImage: showCards ? "chevron.down" : "chevron.up")
+                            .font(.subheadline.weight(.medium))
+                            .contentTransition(.symbolEffect(.replace))
+                            .padding(.horizontal, 14)
+                            .frame(height: 32)
+                            .background(Color.white.opacity(0.14), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .sensoryFeedback(.selection, trigger: showCards)
+                }
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -70,14 +93,34 @@ struct ResultView: View {
                     .accessibilityLabel("Xuất và chia sẻ")
             }
         }
-        .sheet(isPresented: $showExport) { ExportView(match: match).presentationDetents([.medium]) }
-        .onAppear { if player == nil { player = AVPlayer(url: match.resultURL) } }
+        .sheet(isPresented: $showExport) { ExportView(match: match, url: videoURL).presentationDetents([.medium]) }
+        .onAppear { if player == nil { player = AVPlayer(url: videoURL) } }
+        .task { await loadAspect() }
         .onDisappear { player?.pause() }
+    }
+}
+
+private extension ResultView {
+    /// Switch between the video with and without the stat cards, keeping the position and play state.
+    func swapVideo() {
+        guard let player else { return }
+        let t = player.currentTime(), playing = player.rate > 0
+        player.replaceCurrentItem(with: AVPlayerItem(url: videoURL))
+        player.seek(to: t, toleranceBefore: .zero, toleranceAfter: .zero) { _ in if playing { player.play() } }
+    }
+
+    /// Portrait phone videos should fill the screen height, not sit in a 16:9 box.
+    func loadAspect() async {
+        guard let track = try? await AVURLAsset(url: match.resultURL).loadTracks(withMediaType: .video).first,
+              let (size, t) = try? await track.load(.naturalSize, .preferredTransform) else { return }
+        let r = size.applying(t)
+        if abs(r.width) > 0, abs(r.height) > 0 { aspect = abs(r.width) / abs(r.height) }
     }
 }
 
 struct ExportView: View {
     var match: Match
+    var url: URL? = nil
     var demoDone = false
     @Environment(\.dismiss) private var dismiss
     @State private var message: String?
@@ -90,7 +133,7 @@ struct ExportView: View {
                     Button { Task { await saveToPhotos() } } label: {
                         Label("Lưu vào Ảnh", systemImage: "photo.on.rectangle")
                     }
-                    ShareLink(item: match.resultURL) {
+                    ShareLink(item: url ?? match.resultURL) {
                         Label("Chia sẻ…", systemImage: "square.and.arrow.up")
                     }
                 } footer: {
@@ -117,7 +160,7 @@ struct ExportView: View {
         }
         do {
             try await PHPhotoLibrary.shared().performChanges {
-                _ = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: match.resultURL)
+                _ = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url ?? match.resultURL)
             }
             message = nil
             UINotificationFeedbackGenerator().notificationOccurred(.success)

@@ -51,7 +51,8 @@ def circle_poly(H, x, y, r=0.5, n=48):
     a = np.linspace(0, 2 * np.pi, n, endpoint=False)
     return court.to_img(H, np.stack([x + r * np.cos(a), y + r * np.sin(a)], 1)).astype(np.int32)
 
-def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None):
+def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None, both=False):
+    """Returns the frame, or (frame, frame without the stat cards) when both=True."""
     layers = layers or {'feet', 'speed', 'map', 'path', 'hits'}
     H = np.array(fr['H']) if fr['H'] is not None else None
     act = [p for p in players if p['t0'] <= i <= p['t1']] if H is not None else []
@@ -99,6 +100,9 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
             if len(pts) > 1: d.line(pts, fill=c + (170,), width=max(1, round(S(4))), joint='curve')
             x, y = mx + p['X'][k] * s, my + p['Y'][k] * s
             d.ellipse((x - S(8), y - S(8), x + S(8), y + S(8)), fill=c)
+    plain = None
+    if both:
+        plain = cv2.cvtColor(np.array(Image.alpha_composite(im, ui).convert('RGB')), cv2.COLOR_RGB2BGR)
     if act and 'speed' in layers:
         # stat cards along the bottom, wrapping into rows on narrow (portrait) frames
         gap = S(16); per_row = max(1, min(len(act), int((W - 2 * m + gap) // (S(330) + gap))))
@@ -121,7 +125,8 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
                 ys = gy1 - np.clip(vs / 25, 0, 1) * (gy1 - gy0)
                 d.line(list(zip(xs, ys)), fill=c, width=max(1, round(S(2))))
                 d.ellipse((xs[-1] - S(4), ys[-1] - S(4), xs[-1] + S(4), ys[-1] + S(4)), fill='white')
-    return cv2.cvtColor(np.array(Image.alpha_composite(im, ui).convert('RGB')), cv2.COLOR_RGB2BGR)
+    full = cv2.cvtColor(np.array(Image.alpha_composite(im, ui).convert('RGB')), cv2.COLOR_RGB2BGR)
+    return (full, plain) if both else full
 
 SHUTTLE = (255, 255, 255)
 GLASS = (28, 28, 30, 150)  # iOS dark material
@@ -294,7 +299,8 @@ def assign_hits(cands, pts, players, fps):
     return hits
 
 
-def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None, seed=None, colors=None):
+def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttle_json=None, seed=None, colors=None, out_plain=None):
+    """out_plain: optional second video without the stat cards, so the app can collapse them."""
     set_colors(colors)
     D, players = track.run(det_json, seed)
     if names: NAMES_OVERRIDE.update(names)
@@ -308,18 +314,24 @@ def run(video, det_json, out_mp4, layers=None, names=None, progress=None, shuttl
         json.dump([{k: v for k, v in h.items()} for h in sh['hits']], open(shuttle_json.replace('.json', '_hits.json'), 'w', encoding='utf-8'))
     cap = cv2.VideoCapture(video)
     w, h = int(cap.get(3)), int(cap.get(4))
-    enc = subprocess.Popen([tools.ffmpeg(), '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
+    encoder = lambda dst: subprocess.Popen([tools.ffmpeg(), '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
                             '-i', video, '-map', '0:v', '-map', '1:a?', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
-                            '-c:a', 'aac', '-shortest', '-movflags', '+faststart', out_mp4], stdin=subprocess.PIPE)
+                            '-c:a', 'aac', '-shortest', '-movflags', '+faststart', dst], stdin=subprocess.PIPE)
+    enc = encoder(out_mp4)
+    enc2 = encoder(out_plain) if out_plain else None
     starts = {}
     for p in players: starts[p['shot']] = min(starts.get(p['shot'], 1e9), p['t0'])
     for i, fr in enumerate(F):
         ok, img = cap.read()
         if not ok: break
-        out = draw_frame(img, i, fr, [p for p in players if p['shot'] == fr['shot']], players, fps, starts.get(fr['shot'], i), layers, sh)
+        out = draw_frame(img, i, fr, [p for p in players if p['shot'] == fr['shot']], players, fps, starts.get(fr['shot'], i), layers, sh, both=bool(enc2))
+        if enc2:
+            out, plain = out
+            enc2.stdin.write(plain.tobytes())
         enc.stdin.write(out.tobytes())
         if i % 30 == 0 and progress: progress(i / max(len(F), 1))
     enc.stdin.close(); enc.wait()
+    if enc2: enc2.stdin.close(); enc2.wait()
     run.hits = sh['hits'] if sh else []
     return players
 

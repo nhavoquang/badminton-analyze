@@ -126,8 +126,10 @@ struct APIClient {
         return try dec.decode(MatchStats.self, from: data)
     }
 
-    func downloadVideo(_ id: String, to dst: URL) async throws {
-        let (tmp, resp) = try await URLSession.shared.download(from: base.appendingPathComponent("jobs/\(id)/video"))
+    func downloadVideo(_ id: String, to dst: URL, cards: Bool = true) async throws {
+        var url = base.appendingPathComponent("jobs/\(id)/video")
+        if !cards { url.append(queryItems: [URLQueryItem(name: "cards", value: "0")]) }
+        let (tmp, resp) = try await URLSession.shared.download(from: url)
         try check(resp, Data())
         try? FileManager.default.removeItem(at: dst)
         try FileManager.default.moveItem(at: tmp, to: dst)
