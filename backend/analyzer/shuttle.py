@@ -136,6 +136,46 @@ def track_segment(model, cap, start, end, progress=None):
     return out
 
 
+def motion_candidates(cap, start, end, boxes=None, score=0.5):
+    """Second detector for what TrackNet misses, mostly a shuttle high up against a dark ceiling or wall:
+    small bright blobs that are brighter than both the previous and the next frame (a light object passing
+    through). Blobs on players (boxes: frame -> [x0, y0, x1, y1, ...]) are ignored; pick() keeps only
+    candidates that form a smooth flight path."""
+    W = cap.get(cv2.CAP_PROP_FRAME_WIDTH); H = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    amax = 0.00025 * W * H; smax = 0.04 * W
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+    gray = lambda f: cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.int16)
+    buf, out, k = [], {}, np.ones((2, 2), np.uint8)
+    for i in range(start, end):
+        ok, f = cap.read()
+        if not ok: break
+        buf.append(gray(f))
+        if len(buf) < 3: continue
+        a, b, c = buf[-3:]; buf = buf[-2:]; fi = i - 1
+        d = np.minimum(b - a, b - c)
+        m = cv2.morphologyEx((d > 18).astype(np.uint8), cv2.MORPH_OPEN, k)
+        n, lab, st, cen = cv2.connectedComponentsWithStats(m)
+        bx = [q for q in (boxes or {}).get(fi, []) if q[4] > 0.4]
+        res = []
+        for j in range(1, n):
+            x, y, w, h, area = st[j]
+            if not (3 <= area <= amax and max(w, h) <= smax): continue
+            px, py = cen[j]
+            if b[lab == j].mean() < 120: continue
+            if any(q[0] - 0.1 * (q[2] - q[0]) <= px <= q[2] + 0.1 * (q[2] - q[0]) and q[1] <= py <= q[3] for q in bx): continue
+            res.append((float(px), float(py), score))
+        if res: out[fi] = res
+    return out
+
+
+def merge(a, b, width):
+    """Add detector b's candidates to a's where a has nothing close by."""
+    out = {f: list(v) for f, v in a.items()}
+    for f, v in b.items():
+        out[f] = _dedupe(out.get(f, []) + list(v), 0.02 * width)
+    return out
+
+
 def _dedupe(c, r):
     c = sorted(c, key=lambda p: -p[2]); keep = []
     for p in c:

@@ -115,6 +115,7 @@ def track_shuttle(clip, det_json, out_json, progress=None):
             cur[1] = f['i'] + 1
     if cur: runs.append(cur)
     total = sum(b - a for a, b, _ in runs) or 1
+    boxes = {f['i']: f.get('dets', []) for f in F}
     model = shuttle.load()
     cap = cv2.VideoCapture(clip)
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -122,6 +123,7 @@ def track_shuttle(clip, det_json, out_json, progress=None):
     for a, b, _ in runs:
         raw = shuttle.track_segment(model, cap, a, b,
                                     progress=(lambda x, a=a, b=b: progress((done + x * (b - a)) / total)) if progress else None)
+        raw = shuttle.merge(raw, shuttle.motion_candidates(cap, a, b, boxes), width)
         seg = shuttle.clean(shuttle.pick(raw, fps, width), fps, width=width)
         pts.update(seg)
         cands += shuttle.find_hits(seg, fps)

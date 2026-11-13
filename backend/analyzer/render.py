@@ -82,7 +82,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
         tw = d.textlength(label, font=f_tag) + d.textlength(sp, font=f_small) + S(52)
         x0, y0 = cx - tw / 2, top - S(46)
         d.rounded_rectangle((x0, y0, x0 + tw, y0 + S(34)), S(17), fill=GLASS)
-        d.ellipse((x0 + S(12), y0 + S(12), x0 + S(22), y0 + S(22)), fill=c)
+        d.ellipse((x0 + S(10), y0 + S(10), x0 + S(24), y0 + S(24)), fill=c)
         d.text((x0 + S(30), y0 + S(17)), label, font=f_tag, fill='white', anchor='lm')
         d.text((x0 + tw - S(13), y0 + S(17)), sp, font=f_small, fill=(235, 235, 245, 150), anchor='rm')
     if act and 'map' in layers:
@@ -109,7 +109,7 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
             k = i - p['t0']; c = COL[(p['side'], p['slot'])]
             x0 = m + (n % per_row) * (cw + gap); y0 = Hh - m - (rows - n // per_row) * (ch + gap) + gap
             d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), S(20), fill=GLASS)
-            d.ellipse((x0 + S(20), y0 + S(25), x0 + S(32), y0 + S(37)), fill=c)
+            d.ellipse((x0 + S(19), y0 + S(24), x0 + S(33), y0 + S(38)), fill=c)
             d.text((x0 + S(42), y0 + S(16)), name_of(p, all_p), font=f_name, fill='white')
             d.text((x0 + cw - S(70), y0 + S(8)), f"{p['v'][k]:.1f}", font=f_big, fill='white', anchor='ra')
             d.text((x0 + cw - S(18), y0 + S(26)), 'km/h', font=f_small, fill=(180, 186, 200), anchor='ra')
@@ -161,7 +161,7 @@ def foot_glow(img, H, x, y, color, r=0.55, rings=10):
         poly = circle_poly(H, x, y, r * (1 - n / rings)) - [x0, y0]
         tmp = np.zeros_like(m); cv2.fillPoly(tmp, [poly.astype(np.int32)], 1.0, cv2.LINE_AA); m += tmp
     m = cv2.GaussianBlur(m / rings, (0, 0), max(0.8, (x1 - x0) / 120))
-    alpha = 0.6 * m ** 1.2
+    alpha = 0.8 * m
     _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), alpha)
 
 
@@ -178,7 +178,7 @@ def soft_trail(img, pts, color, width):
         t = j / (n - 1)
         a, b = (pts[j - 1] - [x0, y0]).astype(int), (pts[j] - [x0, y0]).astype(int)
         cv2.line(m, tuple(a), tuple(b), float(t), max(1, int(width * (0.4 + 0.6 * t))), cv2.LINE_AA)
-    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), 0.18 * m)
+    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), 0.3 * m)
 
 
 def _smooth(run, per=4):
@@ -251,7 +251,7 @@ def ripple(img, h, q, u):
     x0, y0, x1, y1 = box
     ease = 1 - (1 - q) ** 3
     m = np.zeros((y1 - y0, x1 - x0), np.float32)
-    cv2.circle(m, (int(x - x0), int(y - y0)), int(8 * u + R * ease), 1.0, max(1, int(3 * u)), cv2.LINE_AA)
+    cv2.circle(m, (int(x - x0), int(y - y0)), int(8 * u + R * ease), 1.0, max(2, int(4 * u)), cv2.LINE_AA)
     _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), m * (1 - q) ** 1.5 * 0.95)
 
 
