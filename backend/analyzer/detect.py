@@ -1,7 +1,7 @@
 """Pass 1: scene cuts, court homography per shot, person detections on court frames -> JSON."""
 import sys, json, cv2, numpy as np
 from ultralytics import YOLO
-from . import court
+from . import court, track
 
 def run(video, out_json, model_name='yolo11s.pt', imgsz=1280, progress=None, marks=None):
     """marks: 4 court points from the app (see court.from_marks) -> fixed camera, no auto court fit."""
@@ -34,7 +34,7 @@ def run(video, out_json, model_name='yolo11s.pt', imgsz=1280, progress=None, mar
             rec['H'] = H.tolist()
             r = model.predict(img, imgsz=imgsz, classes=[0], conf=0.3, verbose=False)[0]
             for b, c in zip(r.boxes.xyxy.tolist(), r.boxes.conf.tolist()):
-                rec['dets'].append([round(v, 1) for v in b] + [round(c, 3)])
+                rec['dets'].append([round(v, 1) for v in b] + [round(c, 3), track.appearance(img, b)])
         frames.append(rec)
         if i % 30 == 0 and progress: progress(i / max(n, 1))
         i += 1

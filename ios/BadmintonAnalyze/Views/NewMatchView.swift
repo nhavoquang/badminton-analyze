@@ -286,12 +286,16 @@ struct CourtConfirmView: View {
     private var hint: String {
         if let problem { return problem }
         if let r = result {
-            if let m = r.message { return m }
-            return "Kiểm tra tên trên đầu mỗi người. Sai thì chạm vào tên để đổi."
+            if let m = r.message, r.court == nil && !manual || r.players.isEmpty { return m }
+            let need = kind.slots.count, seen = Set(r.players.map(\.slot)).count
+            if seen < need {
+                return "Mới thấy \(seen)/\(need) người. Kéo thanh khung hình tới lúc thấy đủ người chơi rồi bấm Xem trước lại."
+            }
+            return "Đủ \(need) người. Kiểm tra tên trên đầu mỗi người, sai thì chạm vào tên để đổi. Máy sẽ nhớ màu áo từng người ở khung hình này."
         }
         return manual
-            ? "Kéo 1 và 2 vào hai góc cuối sân bên kia lưới, 3 và 4 vào chân hai cột lưới. Rồi bấm Xem trước."
-            : "Bấm Xem trước để xem máy có nhận ra sân và người chơi không."
+            ? "Kéo 1 và 2 vào hai góc cuối sân bên kia lưới, 3 và 4 vào chân hai cột lưới. Chọn khung hình thấy đủ người chơi rồi bấm Xem trước."
+            : "Chọn khung hình thấy đủ người chơi rồi bấm Xem trước để kiểm tra sân và tên từng người."
     }
 
     private func displayName(_ slot: String) -> String {
