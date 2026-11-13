@@ -6,8 +6,10 @@ struct BadmintonAnalyzeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(store)
+            Group {
+                if Demo.screen != nil { Demo.root } else { RootView() }
+            }
+            .environmentObject(store)
         }
     }
 }

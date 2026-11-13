@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2BC27A"/>
+      <stop offset="1" stop-color="#0A6B43"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFD60A" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#FFD60A" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FFD60A"/>
+    </linearGradient>
+    <linearGradient id="skirt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E4ECF2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- court in perspective -->
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="10" stroke-linejoin="round">
+    <path d="M312 470 L712 470 L900 1024 L124 1024 Z"/>
+    <path d="M512 470 L512 1024"/>
+    <path d="M262 640 L762 640"/>
+  </g>
+  <!-- foot ring -->
+  <ellipse cx="300" cy="820" rx="120" ry="44" fill="#FFFFFF" fill-opacity="0.14" stroke="#FFFFFF" stroke-width="12"/>
+  <!-- trajectory -->
+  <path d="M300 800 C 300 520, 420 330, 610 330" fill="none" stroke="url(#trail)" stroke-width="30" stroke-linecap="round"/>
+  <!-- shuttlecock: cork leads (+x), skirt trails toward the path -->
+  <g transform="translate(700 318) rotate(-6)">
+    <path d="M-40 -46 L-250 -128 L-250 128 L-40 46 Z" fill="url(#skirt)"/>
+    <g stroke="#AFC0CD" stroke-width="8" stroke-linecap="round">
+      <path d="M-44 -24 L-246 -66"/><path d="M-44 0 L-246 0"/><path d="M-44 24 L-246 66"/>
+      <path d="M-150 -92 L-150 92"/>
+    </g>
+    <rect x="-52" y="-50" width="26" height="100" rx="6" fill="#FFD60A"/>
+    <path d="M-30 -50 L10 -50 A 50 50 0 0 1 10 50 L-30 50 Z" fill="#FFFFFF"/>
+  </g>
+</svg>

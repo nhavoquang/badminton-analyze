@@ -119,7 +119,8 @@ struct NewMatchView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Huỷ") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    NavigationLink("Tiếp") { CourtConfirmView(video: video, start: start, manual: $manualCourt, marks: $marks, onStart: begin) }
+                    NavigationLink("Tiếp") { CourtConfirmView(video: video, start: start, length: length, kind: kind,
+                                     manual: $manualCourt, marks: $marks, names: $names, onStart: begin) }
                         .disabled(video == nil)
                 }
             }
@@ -173,57 +174,134 @@ struct NewMatchView: View {
     }
 }
 
-/// The user marks the court on a frame of the video (or leaves it to automatic detection) before uploading.
+/// Court setup with a preview: the user checks on a real frame that the court and the player names sit right,
+/// for both manual marks and automatic detection, before the video is uploaded.
 struct CourtConfirmView: View {
     var video: URL?
     var start: Double
+    var length: Double
+    var kind: MatchKind
     @Binding var manual: Bool
     @Binding var marks: [CGPoint]
+    @Binding var names: [PlayerSlot: String]
     var onStart: () -> Void
 
+    @AppStorage("serverURL") private var serverURL = "http://192.168.1.10:8000"
+    @State private var time: Double = 0
+    @State private var image: UIImage?
+    @State private var result: PreviewResult?
+    @State private var checking = false
+    @State private var problem: String?
+
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 12) {
             Picker("Cách nhận diện sân", selection: $manual) {
                 Text("Tự chấm sân").tag(true)
                 Text("Tự động").tag(false)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            .padding(.vertical, 10)
 
-            if manual {
-                CourtMarkView(video: video, time: start, marks: $marks)
-                    .padding(.horizontal)
-                Text("Kéo **1** và **2** vào hai góc cuối sân phía bên kia lưới, **3** và **4** vào chân hai cột lưới. Khung vàng phải trùng với vạch sân.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-            } else {
-                VideoThumbnail(url: video, time: start)
+            FrameOverlay(
+                image: image,
+                editable: manual,
+                marks: $marks,
+                serverCourt: manual ? nil : result?.court,
+                players: result?.players ?? [],
+                name: displayName,
+                swapOptions: { slot in kind.slots.filter { $0.rawValue != slot } },
+                onSwap: swap
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal)
+
+            Text(hint)
+                .font(.footnote)
+                .foregroundStyle(problem == nil ? Color.secondary : Color.orange)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24)
+
+            if length > 1 {
+                HStack(spacing: 10) {
+                    Image(systemName: "film").foregroundStyle(.secondary)
+                    Slider(value: $time, in: 0...length) { editing in
+                        if !editing { result = nil }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            HStack(spacing: 12) {
+                Button { Task { await check() } } label: {
+                    HStack(spacing: 6) {
+                        if checking { ProgressView() } else { Image(systemName: "eye") }
+                        Text("Xem trước")
+                    }
                     .frame(maxWidth: .infinity)
-                    .frame(maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal)
-                Text("Hợp với video quay từ sau sân, thấy đủ 4 góc sân. Với video quay từ góc sân bằng điện thoại, hãy dùng Tự chấm sân.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-            }
+                }
+                .buttonStyle(.bordered)
+                .disabled(checking || image == nil)
 
-            Button(action: onStart) {
-                Text("Bắt đầu phân tích").frame(maxWidth: .infinity)
+                Button(action: onStart) {
+                    Text("Phân tích").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(.horizontal)
-            .padding(.vertical, 16)
+            .padding(.bottom, 12)
         }
+        .padding(.top, 8)
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Sân đấu")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { if time == 0 { time = start } }
+        .onChange(of: manual) { result = nil; problem = nil }
+        .onChange(of: marks) { if manual, result != nil { result = nil } }
+        .task(id: Int(time * 10)) {
+            if let demo = Demo.frame { image = demo; return }
+            image = await VideoThumbnail.frame(video, at: time, maxSide: 1280)
+        }
+        .task {
+            if Demo.screen != nil { result = Demo.preview(manual: manual, marks: marks) }
+        }
+    }
+
+    private var hint: String {
+        if let problem { return problem }
+        if let r = result {
+            if let m = r.message { return m }
+            return "Kiểm tra tên trên đầu mỗi người. Sai thì chạm vào tên để đổi."
+        }
+        return manual
+            ? "Kéo 1 và 2 vào hai góc cuối sân bên kia lưới, 3 và 4 vào chân hai cột lưới. Rồi bấm Xem trước."
+            : "Bấm Xem trước để xem máy có nhận ra sân và người chơi không."
+    }
+
+    private func displayName(_ slot: String) -> String {
+        guard let s = PlayerSlot(rawValue: slot) else { return slot }
+        let n = names[s] ?? ""
+        return n.isEmpty ? s.placeholder : n
+    }
+
+    private func swap(_ slot: String, _ other: PlayerSlot) {
+        guard let s = PlayerSlot(rawValue: slot) else { return }
+        let a = displayName(s.rawValue), b = displayName(other.rawValue)
+        names[s] = b; names[other] = a
+    }
+
+    private func check() async {
+        guard let image, let jpeg = image.jpegData(compressionQuality: 0.85) else { return }
+        checking = true; problem = nil
+        defer { checking = false }
+        do {
+            let api = try APIClient(baseString: serverURL)
+            let court = manual ? marks.map { [Double($0.x), Double($0.y)] } : nil
+            result = try await api.preview(frame: jpeg, court: court)
+        } catch {
+            problem = "Không xem trước được: \(error.localizedDescription)"
+        }
     }
 }

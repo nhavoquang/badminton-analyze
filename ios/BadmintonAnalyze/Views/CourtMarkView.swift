@@ -56,86 +56,134 @@ struct Homography {
     }
 }
 
-/// The user drags 4 handles onto the court; the full court is drawn live so they can see it lines up.
-struct CourtMarkView: View {
-    var video: URL?
-    var time: Double
-    @Binding var marks: [CGPoint]  // fractions of the frame
+/// A video frame with the court and the players drawn on top. In manual mode the 4 court marks can be dragged.
+struct FrameOverlay: View {
+    var image: UIImage?
+    var editable: Bool
+    @Binding var marks: [CGPoint]          // fractions of the frame
+    var serverCourt: [[[Double]]]?         // court polylines from the server (automatic mode)
+    var players: [PreviewPlayer]
+    var name: (String) -> String
+    var swapOptions: (String) -> [PlayerSlot]
+    var onSwap: (String, PlayerSlot) -> Void
 
-    @State private var image: UIImage?
     @State private var dragStart: [CGPoint]?
-
-    private static let labels = ["1", "2", "3", "4"]
 
     var body: some View {
         GeometryReader { geo in
-            let size = fittedSize(in: geo.size)
-            ZStack {
-                if let image {
-                    Image(uiImage: image).resizable().frame(width: size.width, height: size.height)
-                } else {
-                    Rectangle().fill(Color(.tertiarySystemFill)).frame(width: size.width, height: size.height)
+            let size = fitted(in: geo.size)
+            ZStack(alignment: .topLeading) {
+                Group {
+                    if let image {
+                        Image(uiImage: image).resizable()
+                    } else {
+                        Rectangle().fill(Color(.tertiarySystemFill)).overlay(ProgressView())
+                    }
                 }
+                .frame(width: size.width, height: size.height)
+
                 Canvas { ctx, _ in
-                    let pts = marks.map { CGPoint(x: $0.x * size.width, y: $0.y * size.height) }
-                    guard let h = Homography(from: CourtModel.marks, to: pts) else { return }
-                    var path = Path()
-                    for (a, b) in CourtModel.segments {
-                        // draw in short steps so lines that run behind the camera are cut cleanly
-                        var last: CGPoint?
-                        for i in 0...20 {
-                            let t = CGFloat(i) / 20
-                            let p = h.apply(CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t))
-                            if let p, let l = last { path.move(to: l); path.addLine(to: p) }
-                            last = p
-                        }
-                    }
-                    ctx.stroke(path, with: .color(.yellow.opacity(0.9)), lineWidth: 1.5)
-                    var net = Path()
-                    if let a = h.apply(CourtModel.marks[3]), let b = h.apply(CourtModel.marks[2]) {
-                        net.move(to: a); net.addLine(to: b)
-                    }
-                    ctx.stroke(net, with: .color(.white), lineWidth: 3)
+                    ctx.stroke(courtPath(in: size), with: .color(.yellow.opacity(0.9)), lineWidth: 1.5)
                 }
                 .frame(width: size.width, height: size.height)
                 .allowsHitTesting(false)
 
-                ForEach(marks.indices, id: \.self) { i in
-                    handle(Self.labels[i])
-                        .position(x: marks[i].x * size.width, y: marks[i].y * size.height)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { g in
-                                    if dragStart == nil { dragStart = marks }
-                                    let s = dragStart![i]
-                                    marks[i] = CGPoint(x: min(max(s.x + g.translation.width / size.width, 0), 1),
-                                                       y: min(max(s.y + g.translation.height / size.height, 0), 1))
-                                }
-                                .onEnded { _ in dragStart = nil }
-                        )
+                ForEach(players, id: \.self) { p in playerBox(p, in: size) }
+
+                if editable {
+                    ForEach(marks.indices, id: \.self) { i in
+                        MarkHandle(label: "\(i + 1)")
+                            .position(x: marks[i].x * size.width, y: marks[i].y * size.height)
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { g in
+                                        if dragStart == nil { dragStart = marks }
+                                        let s = dragStart![i]
+                                        marks[i] = CGPoint(x: min(max(s.x + g.translation.width / size.width, 0), 1),
+                                                           y: min(max(s.y + g.translation.height / size.height, 0), 1))
+                                    }
+                                    .onEnded { _ in dragStart = nil }
+                            )
+                    }
                 }
             }
             .frame(width: size.width, height: size.height)
-            .clipped()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .task(id: "\(video?.path ?? "")-\(time)") {
-            image = await VideoThumbnail.frame(video, at: time, maxSide: 1600)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
     }
 
-    private func fittedSize(in box: CGSize) -> CGSize {
-        let ratio = image.map { $0.size.width / max($0.size.height, 1) } ?? 16 / 9
+    private func fitted(in box: CGSize) -> CGSize {
+        guard box.width > 0, box.height > 0 else { return .zero }
+        let ratio = image.map { $0.size.width / max($0.size.height, 1) } ?? 9 / 16
         return box.width / box.height > ratio
             ? CGSize(width: box.height * ratio, height: box.height)
             : CGSize(width: box.width, height: box.width / ratio)
     }
 
-    private func handle(_ label: String) -> some View {
+    private func courtPath(in size: CGSize) -> Path {
+        var path = Path()
+        if editable {
+            let pts = marks.map { CGPoint(x: $0.x * size.width, y: $0.y * size.height) }
+            guard let h = Homography(from: CourtModel.marks, to: pts) else { return path }
+            for (a, b) in CourtModel.segments {
+                var last: CGPoint?
+                for i in 0...20 {  // short steps, so lines running behind the camera are cut cleanly
+                    let t = CGFloat(i) / 20
+                    let p = h.apply(CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t))
+                    if let p, let l = last { path.move(to: l); path.addLine(to: p) }
+                    last = p
+                }
+            }
+        } else if let lines = serverCourt {
+            for line in lines where line.count > 1 {
+                path.addLines(line.map { CGPoint(x: $0[0] * size.width, y: $0[1] * size.height) })
+            }
+        }
+        return path
+    }
+
+    private func playerBox(_ p: PreviewPlayer, in size: CGSize) -> some View {
+        let color = PlayerSlot(rawValue: p.slot)?.color ?? .gray
+        let r = CGRect(x: p.box[0] * size.width, y: p.box[1] * size.height,
+                       width: (p.box[2] - p.box[0]) * size.width, height: (p.box[3] - p.box[1]) * size.height)
+        return ZStack(alignment: .topLeading) {
+            Ellipse()
+                .stroke(color, lineWidth: 2.5)
+                .frame(width: max(r.width * 1.3, 24), height: max(r.width * 0.45, 9))
+                .position(x: r.midX, y: r.maxY)
+            Menu {
+                Section("Người này là") {
+                    ForEach(swapOptions(p.slot)) { other in
+                        Button(name(other.rawValue)) { onSwap(p.slot, other) }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Circle().fill(color).frame(width: 8, height: 8)
+                    Text(name(p.slot)).font(.caption.weight(.semibold)).lineLimit(1)
+                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .background(.black.opacity(0.7), in: Capsule())
+                .overlay(Capsule().stroke(color, lineWidth: 1.5))
+                .fixedSize()
+            }
+            .position(x: r.midX, y: max(r.minY - 16, 12))
+        }
+    }
+}
+
+private struct MarkHandle: View {
+    var label: String
+    var body: some View {
         ZStack {
             Circle().fill(.clear).frame(width: 44, height: 44)  // touch target
-            Circle().stroke(.white, lineWidth: 2).frame(width: 22, height: 22)
-                .background(Circle().fill(Color.accentColor.opacity(0.85)))
+            Circle().fill(Color.accentColor).frame(width: 24, height: 24)
+                .overlay(Circle().stroke(.white, lineWidth: 2))
+                .shadow(radius: 2)
             Text(label).font(.caption2.bold()).foregroundStyle(.white)
         }
         .contentShape(Circle())

@@ -78,8 +78,10 @@ struct ResultView: View {
 
 struct ExportView: View {
     var match: Match
+    var demoDone = false
     @Environment(\.dismiss) private var dismiss
     @State private var message: String?
+    @State private var done: String?
 
     var body: some View {
         NavigationStack {
@@ -98,6 +100,12 @@ struct ExportView: View {
             .navigationTitle("Xuất video")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Xong") { dismiss() } } }
+            .overlay {
+                if let done {
+                    DoneHUD(subtitle: done).transition(.scale(scale: 0.8).combined(with: .opacity))
+                }
+            }
+            .onAppear { if demoDone { done = "Video đã được lưu vào Ảnh" } }
         }
     }
 
@@ -111,9 +119,37 @@ struct ExportView: View {
             try await PHPhotoLibrary.shared().performChanges {
                 _ = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: match.resultURL)
             }
-            message = "Đã lưu vào Ảnh."
+            message = nil
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            withAnimation(.spring(duration: 0.35)) { done = "Video đã được lưu vào Ảnh" }
+            try? await Task.sleep(for: .seconds(1.6))
+            withAnimation { done = nil }
+            dismiss()
         } catch {
             message = error.localizedDescription
         }
+    }
+}
+
+/// Big, centred confirmation like the system "Done" HUD, so a save is impossible to miss.
+struct DoneHUD: View {
+    var title = "Xong!"
+    var subtitle: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.white, .green)
+                .symbolEffect(.bounce, value: subtitle)
+            Text(title).font(.title2.bold())
+            Text(subtitle).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
+        .frame(minWidth: 200)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26))
+        .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+        .accessibilityElement(children: .combine)
     }
 }

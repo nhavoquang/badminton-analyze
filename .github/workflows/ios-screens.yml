@@ -1,0 +1,66 @@
+name: iOS screenshots
+
+# Builds for the simulator and captures the main screens in demo mode (no server needed),
+# so UI changes can be checked without a Mac.
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios-screens.yml']
+  workflow_dispatch:
+
+jobs:
+  screens:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick and boot a simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone') and 'Pro' in x['name'] and 'Max' not in x['name']]; print(c[-1]['udid'])")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Build for simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build -project BadmintonAnalyze.xcodeproj -scheme BadmintonAnalyze -configuration Debug \
+            -destination "id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            | tee build.log | grep -E "error|BUILD" || true
+          test -d build/Build/Products/Debug-iphonesimulator/BadmintonAnalyze.app
+
+      - name: Capture screens
+        run: |
+          mkdir -p shots
+          APP=ios/build/Build/Products/Debug-iphonesimulator/BadmintonAnalyze.app
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --wifiBars 3 || true
+          for s in home court-manual court-auto export-done; do
+            xcrun simctl terminate "$UDID" com.nhavo.badmintonanalyze || true
+            if [ "$s" = home ]; then xcrun simctl launch "$UDID" com.nhavo.badmintonanalyze
+            else xcrun simctl launch "$UDID" com.nhavo.badmintonanalyze -demoScreen "$s"; fi
+            sleep 8
+            xcrun simctl io "$UDID" screenshot "shots/$s.png"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: |
+            shots/
+            ios/build.log

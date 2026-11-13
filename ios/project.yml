@@ -29,7 +29,7 @@ targets:
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Lưu video đã phân tích vào Ảnh."
         INFOPLIST_KEY_NSCameraUsageDescription: "Quay video trận đấu để phân tích."
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Kết nối tới máy chủ phân tích trong mạng nhà bạn."
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: BadmintonAnalyze/Info.plist
       properties:

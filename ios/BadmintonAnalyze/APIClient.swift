@@ -16,6 +16,19 @@ struct JobStatus: Decodable {
     var error: String?
 }
 
+struct PreviewPlayer: Decodable, Hashable {
+    var slot: String
+    var box: [Double]  // x0, y0, x1, y1 as fractions of the frame
+}
+
+/// What the server sees on one frame: court lines (polylines in frame fractions) and player slots.
+struct PreviewResult: Decodable {
+    var mode: String?
+    var court: [[[Double]]]?
+    var players: [PreviewPlayer]
+    var message: String?
+}
+
 enum APIError: LocalizedError {
     case badServer
     case http(Int, String)
@@ -67,6 +80,24 @@ struct APIClient {
         try check(resp, data)
         struct Created: Decodable { var id: String }
         return try JSONDecoder().decode(Created.self, from: data).id
+    }
+
+    func preview(frame: Data, court: [[Double]]?) async throws -> PreviewResult {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        struct Options: Encodable { var court: [[Double]]? }
+        var body = Data()
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"options\"\r\n\r\n".utf8))
+        body.append(try JSONEncoder().encode(Options(court: court)))
+        body.append(Data("\r\n--\(boundary)\r\nContent-Disposition: form-data; name=\"frame\"; filename=\"frame.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
+        body.append(frame)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        var req = URLRequest(url: base.appendingPathComponent("preview"))
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 90
+        let (data, resp) = try await URLSession.shared.upload(for: req, from: body)
+        try check(resp, data)
+        return try JSONDecoder().decode(PreviewResult.self, from: data)
     }
 
     func status(_ id: String) async throws -> JobStatus {

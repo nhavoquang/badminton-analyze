@@ -1,6 +1,7 @@
 """HTTP API used by the iOS app.
 
 POST /jobs              multipart: video=<file>, options=<json>  -> {"id": ...}
+POST /preview           multipart: frame=<jpeg>, options={"court"?} -> court lines + players
 GET  /jobs/{id}         -> {"status", "step", "progress", "error"}
 GET  /jobs/{id}/video   -> annotated mp4 (with the original audio)
 GET  /jobs/{id}/stats   -> per-player stats json
@@ -61,6 +62,16 @@ async def create_job(video: UploadFile = File(...), options: str = Form('{}')):
                  'status': 'queued', 'step': None, 'progress': 0.0, 'error': None}
     Q.put(jid)
     return {'id': jid}
+
+
+@app.post('/preview')
+def preview_frame(frame: UploadFile = File(...), options: str = Form('{}')):
+    """One video frame (JPEG/PNG) -> court lines + player slots, so the app can show them before uploading."""
+    import cv2, numpy as np
+    from analyzer import preview
+    img = cv2.imdecode(np.frombuffer(frame.file.read(), np.uint8), cv2.IMREAD_COLOR)
+    if img is None: raise HTTPException(400, 'cannot read image')
+    return preview.run(img, json.loads(options or '{}').get('court'))
 
 
 def _job(jid):
