@@ -53,12 +53,16 @@ jobs:
           xcrun simctl install "$UDID" "$APP"
           xcrun simctl status_bar "$UDID" override --time 9:41 --batteryLevel 100 --wifiBars 3 || true
           for s in home court-manual court-auto export-done; do
-            xcrun simctl terminate "$UDID" com.nhavo.badmintonanalyze || true
-            if [ "$s" = home ]; then xcrun simctl launch "$UDID" com.nhavo.badmintonanalyze
-            else xcrun simctl launch "$UDID" com.nhavo.badmintonanalyze -demoScreen "$s"; fi
-            sleep 8
+            if [ "$s" = home ]; then xcrun simctl launch --terminate-running-process "$UDID" com.nhavo.badmintonanalyze
+            else xcrun simctl launch --terminate-running-process "$UDID" com.nhavo.badmintonanalyze -demoScreen "$s"; fi
+            sleep 10
             xcrun simctl io "$UDID" screenshot "shots/$s.png"
           done
+          # crash reports, if any screen crashed
+          mkdir -p shots/crashes
+          cp ~/Library/Logs/DiagnosticReports/BadmintonAnalyze* shots/crashes/ 2>/dev/null || true
+          xcrun simctl spawn "$UDID" log show --last 10m --predicate 'process == "BadmintonAnalyze"' --style compact \
+            | grep -iE "fault|fatal|crash|error" | tail -100 > shots/crashes/log.txt || true
 
       - name: Publish screenshots to the ci-screens branch
         run: |

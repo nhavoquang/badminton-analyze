@@ -33,11 +33,7 @@ enum Demo {
         case "court-manual", "court-auto":
             DemoCourt(manual: screen == "court-manual")
         case "export-done":
-            Color(.systemGroupedBackground).ignoresSafeArea()
-                .sheet(isPresented: .constant(true)) {
-                    ExportView(match: Match(title: "Demo", kind: .doubles, names: [:], layers: []), demoDone: true)
-                        .presentationDetents([.medium])
-                }
+            DemoExport()
         default:
             EmptyView()
         }
@@ -54,5 +50,17 @@ private struct DemoCourt: View {
             CourtConfirmView(video: nil, start: 0, length: 14, kind: .doubles,
                              manual: $manual, marks: $marks, names: $names, onStart: {})
         }
+    }
+}
+
+private struct DemoExport: View {
+    @State private var show = false
+    var body: some View {
+        Color.black.ignoresSafeArea()
+            .task { try? await Task.sleep(for: .seconds(1)); show = true }
+            .sheet(isPresented: $show) {
+                ExportView(match: Match(title: "Demo", kind: .doubles, names: [:], layers: []), demoDone: true)
+                    .presentationDetents([.medium])
+            }
     }
 }

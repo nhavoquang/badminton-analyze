@@ -88,7 +88,8 @@ struct FrameOverlay: View {
                 .frame(width: size.width, height: size.height)
                 .allowsHitTesting(false)
 
-                ForEach(players, id: \.self) { p in playerBox(p, in: size) }
+                let lift = labelLift(size)
+                ForEach(players, id: \.self) { p in playerBox(p, in: size, lift: lift[p.slot] ?? 0) }
 
                 if editable {
                     ForEach(marks.indices, id: \.self) { i in
@@ -143,7 +144,21 @@ struct FrameOverlay: View {
         return path
     }
 
-    private func playerBox(_ p: PreviewPlayer, in size: CGSize) -> some View {
+    /// Raise labels that would overlap a neighbour's, so every name stays readable.
+    private func labelLift(_ size: CGSize) -> [String: CGFloat] {
+        var placed: [(x: CGFloat, y: CGFloat)] = []
+        var lift: [String: CGFloat] = [:]
+        for p in players.sorted(by: { $0.box[1] > $1.box[1] }) {  // nearest (lowest) first
+            let x = (p.box[0] + p.box[2]) / 2 * size.width
+            var y = max(p.box[1] * size.height - 16, 12)
+            let y0 = y
+            while placed.contains(where: { abs($0.x - x) < 90 && abs($0.y - y) < 26 }) { y -= 26 }
+            placed.append((x, y)); lift[p.slot] = y0 - y
+        }
+        return lift
+    }
+
+    private func playerBox(_ p: PreviewPlayer, in size: CGSize, lift: CGFloat) -> some View {
         let color = PlayerSlot(rawValue: p.slot)?.color ?? .gray
         let r = CGRect(x: p.box[0] * size.width, y: p.box[1] * size.height,
                        width: (p.box[2] - p.box[0]) * size.width, height: (p.box[3] - p.box[1]) * size.height)
@@ -171,7 +186,7 @@ struct FrameOverlay: View {
                 .overlay(Capsule().stroke(color, lineWidth: 1.5))
                 .fixedSize()
             }
-            .position(x: r.midX, y: max(r.minY - 16, 12))
+            .position(x: r.midX, y: max(r.minY - 16, 12) - lift)
         }
     }
 }
