@@ -45,19 +45,14 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
     lw = lambda v: max(1, round(v * min(img.shape[:2]) / 1080))
     # --- on-court layer (cv2, alpha blended): trails + foot ellipses
     if act and 'feet' in layers:
-        ov = img.copy()
         for p in act:
             k = i - p['t0']; c = COL[(p['side'], p['slot'])][::-1]
             a = max(0, k - int(fps * 1.0))
-            trail = court.to_img(H, np.stack([p['X'][a:k + 1], p['Y'][a:k + 1]], 1)).astype(np.int32)
-            if len(trail) > 1: cv2.polylines(ov, [trail], False, c, lw(4), cv2.LINE_AA)
-            cv2.fillPoly(ov, [circle_poly(H, p['X'][k], p['Y'][k])], c, cv2.LINE_AA)
-        img = cv2.addWeighted(ov, 0.35, img, 0.65, 0)
-        for p in act:
-            k = i - p['t0']; c = COL[(p['side'], p['slot'])][::-1]
-            cv2.polylines(img, [circle_poly(H, p['X'][k], p['Y'][k])], True, c, lw(3), cv2.LINE_AA)
+            trail = court.to_img(H, np.stack([p['X'][a:k + 1], p['Y'][a:k + 1]], 1))
+            soft_trail(img, trail, c, lw(5))
+            foot_glow(img, H, p['X'][k], p['Y'][k], c)
     if sh and H is not None:
-        img = draw_shuttle(img, i, sh, fps, layers)
+        img = draw_shuttle(img, i, sh, fps, layers, all_p)
     # --- UI layer (PIL); sizes are designed for 1080p and scaled to the frame (portrait phone videos too)
     im = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert('RGBA')
     ui = Image.new('RGBA', im.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ui)
@@ -67,18 +62,6 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
     f_title, f_sub, f_name, f_big, f_small, f_tag = (fonts(w, round(z * u)) for w, z in
                                                     (('Bold', 30), ('Medium', 18), ('Bold', 24), ('Bold', 46), ('Medium', 17), ('Bold', 22)))
     m = S(24)
-    # header
-    hw = min(S(616), W - 2 * m - (S(34) * court.W + S(48) if act and 'map' in layers else 0))
-    d.rounded_rectangle((m, S(20), m + hw, S(104)), S(16), fill=PANEL)
-    d.text((m + S(20), S(30)), 'PHÂN TÍCH CẦU LÔNG', font=f_title, fill='white')
-    d.text((m + S(20), S(70)), 'Tốc độ · Quãng đường · Vị trí', font=f_sub, fill=(180, 186, 200))
-    if act:
-        t = (i - shot_start) / fps
-        d.text((m + hw - S(20), S(70)), f'{int(t // 60):02d}:{t % 60:04.1f}', font=f_sub, fill='white', anchor='ra')
-    elif H is None:
-        d.rounded_rectangle((m, S(116), m + S(376), S(156)), S(12), fill=PANEL)
-        d.text((m + S(16), S(125)), 'Cảnh quay phụ · tạm dừng phân tích', font=f_small, fill=(180, 186, 200))
-    if sh and 'hits' in layers and H is not None: hit_labels(d, i, sh, fps, all_p, u, f_tag)
     for p in (act if 'speed' in layers else []):
         k = i - p['t0']; c = COL[(p['side'], p['slot'])]
         bx = p['boxf'][i]; cx, top = (bx[0] + bx[2]) / 2, bx[1]
@@ -131,25 +114,148 @@ def draw_frame(img, i, fr, players, all_p, fps, shot_start, layers=None, sh=None
 SHUTTLE = (10, 214, 255)  # BGR of iOS yellow #FFD60A
 
 
-def draw_shuttle(img, i, sh, fps, layers):
+def _blend(img, x0, y0, color_layer, alpha):
+    """Alpha-blend a float colour layer (h x w x 3, 0..255) with alpha (h x w, 0..1) onto img at (x0, y0)."""
+    h, w = alpha.shape
+    roi = img[y0:y0 + h, x0:x0 + w].astype(np.float32)
+    a = alpha[..., None]
+    img[y0:y0 + h, x0:x0 + w] = np.clip(roi * (1 - a) + color_layer * a, 0, 255).astype(np.uint8)
+
+
+def _add(img, x0, y0, light):
+    """Additive light (glow) onto img at (x0, y0)."""
+    h, w = light.shape[:2]
+    roi = img[y0:y0 + h, x0:x0 + w].astype(np.float32)
+    img[y0:y0 + h, x0:x0 + w] = np.clip(roi + light, 0, 255).astype(np.uint8)
+
+
+def _roi(img, pts, pad):
+    H, W = img.shape[:2]
+    pts = np.asarray(pts, float).reshape(-1, 2)
+    x0 = int(max(0, pts[:, 0].min() - pad)); x1 = int(min(W, pts[:, 0].max() + pad))
+    y0 = int(max(0, pts[:, 1].min() - pad)); y1 = int(min(H, pts[:, 1].max() + pad))
+    return (x0, y0, x1, y1) if x1 > x0 and y1 > y0 else None
+
+
+def foot_glow(img, H, x, y, color, r=0.55, rings=10):
+    """Soft disc under the feet: solid in the middle, fading out to nothing at the edge (no outline)."""
+    outer = circle_poly(H, x, y, r)
+    box = _roi(img, outer, 2)
+    if box is None: return
+    x0, y0, x1, y1 = box
+    m = np.zeros((y1 - y0, x1 - x0), np.float32)
+    for n in range(rings):
+        poly = circle_poly(H, x, y, r * (1 - n / rings)) - [x0, y0]
+        tmp = np.zeros_like(m); cv2.fillPoly(tmp, [poly.astype(np.int32)], 1.0, cv2.LINE_AA); m += tmp
+    m = cv2.GaussianBlur(m / rings, (0, 0), max(0.8, (x1 - x0) / 120))
+    alpha = 0.9 * m ** 0.9
+    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), alpha)
+
+
+def soft_trail(img, pts, color, width):
+    """Fading movement trail behind a player (transparent tail, stronger near the feet)."""
+    pts = np.asarray(pts, float)
+    if len(pts) < 2: return
+    box = _roi(img, pts, width * 2)
+    if box is None: return
+    x0, y0, x1, y1 = box
+    m = np.zeros((y1 - y0, x1 - x0), np.float32)
+    n = len(pts)
+    for j in range(1, n):
+        t = j / (n - 1)
+        a, b = (pts[j - 1] - [x0, y0]).astype(int), (pts[j] - [x0, y0]).astype(int)
+        cv2.line(m, tuple(a), tuple(b), float(t), max(1, int(width * (0.4 + 0.6 * t))), cv2.LINE_AA)
+    _blend(img, x0, y0, np.full(m.shape + (3,), color, np.float32), 0.3 * m)
+
+
+def _smooth(run, per=4):
+    """Catmull-Rom densify a list of points, so the shuttle path is a smooth curve, not a polyline."""
+    P = np.asarray(run, float)
+    if len(P) < 3: return P
+    P = np.vstack([P[0], P, P[-1]])
+    out = []
+    for k in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[k - 1], P[k], P[k + 1], P[k + 2]
+        for t in np.linspace(0, 1, per, endpoint=False):
+            t2, t3 = t * t, t * t * t
+            out.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3))
+    out.append(P[-2])
+    return np.array(out)
+
+
+def draw_shuttle(img, i, sh, fps, layers, all_p=()):
+    """Shuttle as a glowing comet (tapered, fading tail + bright head) and racket hits as a burst."""
     pts = sh['pts']; u = min(img.shape[:2]) / 1080
-    lw = lambda v: max(1, round(v * u))
     if 'path' in layers:
-        trail = [pts.get(f) for f in range(i - int(fps * 0.5), i + 1)]
-        segs = [(a, b) for a, b in zip(trail, trail[1:]) if a is not None and b is not None]
-        for n, (a, b) in enumerate(segs):
-            w = lw(2 + 4 * (n + 1) / len(segs))
-            cv2.line(img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), SHUTTLE, w, cv2.LINE_AA)
+        span = int(fps * 0.6)
+        runs, cur = [], []
+        for f in range(i - span, i + 1):
+            if pts.get(f) is not None: cur.append((f, pts[f]))
+            elif cur: runs.append(cur); cur = []
+        if cur: runs.append(cur)
+        allp = [q for r in runs for _, q in r]
+        box = _roi(img, allp, 40 * u) if allp else None
+        if box is not None:
+            x0, y0, x1, y1 = box
+            core = np.zeros((y1 - y0, x1 - x0), np.float32); glow = np.zeros_like(core)
+            for r in runs:
+                if len(r) < 2: continue
+                c = _smooth([q for _, q in r]) - [x0, y0]
+                n = len(c)
+                for j in range(1, n):
+                    f = r[0][0] + j * (len(r) - 1) / (n - 1)  # frame this point belongs to
+                    t = max(0.0, min(1.0, 1 - (i - f) / span))  # 1 = now, 0 = end of the tail
+                    a, b = tuple(c[j - 1].astype(int)), tuple(c[j].astype(int))
+                    cv2.line(glow, a, b, t, max(1, int(14 * u * t + 2)), cv2.LINE_AA)
+                    cv2.line(core, a, b, t ** 1.5, max(1, int(5 * u * t + 1)), cv2.LINE_AA)
+            glow = cv2.GaussianBlur(glow, (0, 0), 6 * u + 1)
+            _add(img, x0, y0, glow[..., None] * np.array(SHUTTLE, np.float32) * 0.9)
+            _blend(img, x0, y0, np.full(core.shape + (3,), (180, 240, 255), np.float32), np.clip(core, 0, 1))
         if pts.get(i):
-            p = tuple(int(v) for v in pts[i])
-            cv2.circle(img, p, lw(9), SHUTTLE, -1, cv2.LINE_AA); cv2.circle(img, p, lw(9), (255, 255, 255), lw(2), cv2.LINE_AA)
+            x, y = pts[i]
+            b2 = _roi(img, [(x, y)], 30 * u)
+            if b2:
+                x0, y0, x1, y1 = b2
+                g = np.zeros((y1 - y0, x1 - x0), np.float32)
+                cv2.circle(g, (int(x - x0), int(y - y0)), max(2, int(9 * u)), 1.0, -1, cv2.LINE_AA)
+                g = cv2.GaussianBlur(g, (0, 0), 7 * u + 1)
+                _add(img, x0, y0, g[..., None] * np.array(SHUTTLE, np.float32) * 1.6)
+            cv2.circle(img, (int(x), int(y)), max(2, int(5 * u)), (255, 255, 255), -1, cv2.LINE_AA)
     if 'hits' in layers:
         for h in sh['hits']:
-            age = i - h['f']
-            if 0 <= age < fps * 1.0:
-                r = lw(14 + age / fps * 30)
-                cv2.circle(img, (int(h['xy'][0]), int(h['xy'][1])), r, (255, 255, 255), lw(3), cv2.LINE_AA)
+            age = (i - h['f']) / fps
+            if 0 <= age < 0.55: burst(img, h, age / 0.55, u)
     return img
+
+
+def burst(img, h, q, u):
+    """Hit effect: flash, shockwave ring and sparks flying out, in the hitter's colour. q = 0..1 progress."""
+    side, slot = h['key'][:-1], int(h['key'][-1])
+    color = np.array(COL.get((side, slot), (255, 214, 10))[::-1], np.float32)
+    x, y = h['xy']
+    R = 110 * u
+    box = _roi(img, [(x, y)], R + 20 * u)
+    if box is None: return
+    x0, y0, x1, y1 = box
+    cx, cy = x - x0, y - y0
+    ease = 1 - (1 - q) ** 3
+    light = np.zeros((y1 - y0, x1 - x0), np.float32); white = np.zeros_like(light)
+    # flash
+    if q < 0.35:
+        cv2.circle(white, (int(cx), int(cy)), int(28 * u * (1 + q)), 1.0 - q / 0.35, -1, cv2.LINE_AA)
+    # shockwave
+    cv2.circle(light, (int(cx), int(cy)), int(15 * u + R * 0.8 * ease), 1 - q, max(1, int(9 * u * (1 - q) + 1)), cv2.LINE_AA)
+    # sparks
+    rng = np.random.default_rng(h['f'])
+    for ang in rng.uniform(0, 2 * np.pi, 12):
+        L = rng.uniform(0.6, 1.0)
+        r1, r2 = (20 * u + R * 0.55 * ease) * L, (30 * u + R * ease) * L
+        d = np.array([np.cos(ang), np.sin(ang)])
+        a = (cx + d[0] * r1, cy + d[1] * r1); b = (cx + d[0] * r2, cy + d[1] * r2)
+        cv2.line(light, tuple(map(int, a)), tuple(map(int, b)), 1 - q, max(1, int(4 * u * (1 - q) + 1)), cv2.LINE_AA)
+    g = cv2.GaussianBlur(light, (0, 0), 4 * u + 1)
+    _add(img, x0, y0, (g * 1.6)[..., None] * color)
+    _blend(img, x0, y0, np.full(light.shape + (3,), 255, np.float32), np.clip(light * 0.8 + cv2.GaussianBlur(white, (0, 0), 6 * u + 1), 0, 1))
 
 
 def hit_labels(d, i, sh, fps, all_p, u=1.0, f_tag=None):
