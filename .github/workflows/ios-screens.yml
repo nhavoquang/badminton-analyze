@@ -8,6 +8,9 @@ on:
     paths: ['ios/**', '.github/workflows/ios-screens.yml']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   screens:
     runs-on: macos-15-intel
@@ -56,6 +59,14 @@ jobs:
             sleep 8
             xcrun simctl io "$UDID" screenshot "shots/$s.png"
           done
+
+      - name: Publish screenshots to the ci-screens branch
+        run: |
+          cd shots
+          git init -q -b ci-screens
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add . && git commit -qm "Screenshots for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screens
 
       - uses: actions/upload-artifact@v4
         if: always()
